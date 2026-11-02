@@ -11,7 +11,7 @@ function HomePage() {
           The APE interface workspace is ready. Learner and center experiences
           can grow here, backed by the existing assessment API.
         </p>
-        <a className="text-link" href="https://github.com/lumenwork/ape">
+        <a className="text-link transition-colors duration-200" href="https://github.com/lumenwork/ape">
           Explore the backend <span aria-hidden="true">↗</span>
         </a>
       </div>
@@ -31,7 +31,7 @@ function NotFoundPage() {
     <section className="not-found" aria-labelledby="not-found-title">
       <span className="eyebrow">Page not found</span>
       <h1 id="not-found-title">That route is not set up yet.</h1>
-      <Link className="text-link" to="/">
+      <Link className="text-link transition-colors duration-200" to="/">
         Back to overview <span aria-hidden="true">→</span>
       </Link>
     </section>

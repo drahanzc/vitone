@@ -1,0 +1,499 @@
+# Grounding: reading `get_design_context` + per-node fidelity
+
+Loaded by **figma-codegen step 1**. `get_design_context` (detail `full`, `dedupeComponents: true`)
+is the layout + binding source of truth — tokens resolved to names, styles deduped into `globalVars`,
+each instance's `mainComponent` / `componentProperties`. Trust it over the screenshot; never
+hand-resolve variable ids or read raw hex. This file is the detail: how to read the tree, the
+per-property fidelity catalog, and how to ground a page too big for one call.
+
+## Reading the tree
+
+- **`colorProfile: "DISPLAY_P3"` means every colour in the payload is a P3 colour.** It is the first
+  key of a result from a Display P3 file, and absent otherwise. There, a hex (and any r/g/b) is P3
+  channels: `#CC6633` is what CSS writes as `color(display-p3 0.8 0.4 0.2)`, and emitted as the
+  plain hex it renders visibly duller — measured against Figma's own render, the plain hex was up to
+  102/255 off on a saturated green and 20/255 on an orange, `color(display-p3 …)` within 1/255. So
+  emit a raw colour as `color(display-p3 r g b)` with each channel the hex pair ÷ 255, rounded to 3
+  decimals (`/ a` for the alpha of an 8-digit hex, e.g. `color(display-p3 0 0 0 / 0.25)`; Tailwind
+  `bg-[color(display-p3_0.8_0.4_0.2)]`) — fills, strokes, gradient stops and shadows alike. A token
+  still wins: when the colour is a bound variable, or `projectTokens` / `token_map` match it to a
+  project token, emit the token (the designer most likely meant the brand colour, and the file just
+  happens to be P3) and say in your report that the design renders more saturated than that token
+  does. Without `colorProfile`, a hex is the plain sRGB hex it reads as.
+- **Keep `dedupeComponents: true`, and do not depth-limit a tree you intend to build from.** Dedupe
+  shows the **first** instance of each repeated component in full and collapses the rest to a
+  `"deduped": true` stub — a 100-instance screen stays readable while every distinct component keeps
+  one complete copy. A `deduped` (or `truncated`) sibling means "identical to the first one, reuse
+  that structure"; a depth cap, by contrast, throws the structure away — the trap that makes repeated
+  rows/cards look empty.
+- **Same structure, different content: read each deduped instance's `textOverrides`.** A `deduped`
+  stub carries its own `textOverrides` (`{ name, characters }` for every visible TEXT it renders) —
+  fill each repeated element's text from that, so cards/rows/form-fields get their distinct titles /
+  labels / values without re-expanding the un-deduped tree or drilling per instance.
+- **…and its `propertyOverrides` for what it looks like differently.** The same stub lists each layer
+  whose fill, stroke, effect, radius, corner smoothing, opacity, blend or visibility differs from
+  the main component (`{ name, fills: […] }`, `{ name, visible: false }`) — apply those per instance
+  (a prop, a class), or every card renders like the first. An entry's `variableModes` (`{ name, variableModes: { color:
+  "Dark" } }`) is a layer switched to another mode inside that instance: its token names are the
+  first instance's, its colours are that mode's (`{}` means it went back to inheriting).
+- **A variable's `codeSyntax` is the declared code name — prefer it over deriving one.** An entry in
+  the top-level `variables` map may carry `codeSyntax` (`{ WEB: '--color-primary', … }`): the
+  designer's own declaration of the code-side token, stronger than any name you'd derive from the
+  Figma name (`Primary/500` → `primary-500`). Use the platform key matching the stack (WEB for
+  css/Tailwind). It's a naming declaration, not a guarantee the token exists — when it matches a
+  token in the project (theme file / `token_map`), use it verbatim; when it matches nothing (a stale
+  declaration after a rename), trust the project's actual token found by value/name instead.
+- **`variableModes` says which theme a subtree is drawn in.** A node may carry `variableModes`
+  (`{ color: "Dark" }`): every variable bound below it resolves in that mode, so its hex values are
+  that mode's — but its **token names are the same as in the default mode**. A root carries every
+  non-default mode in effect, even one set on a frame or page outside your read; deeper nodes carry
+  only a mode set on them. So a frame with `{ color: "Dark" }` is the **dark variant**, not a dark
+  design: keep the token references, and render the subtree inside the project's mechanism for that
+  mode (`.dark` / `[data-theme="dark"]` / a `dark:` story — whatever `token_map`'s `figmaModes`
+  pointed you to). Don't hardcode its hex (that freezes one theme), and don't emit it with plain token
+  refs either (they would render the default theme). Two frames that differ only in `variableModes`
+  are one component in two themes — implement it once; the second frame is a verification target.
+
+## Per-node visual fidelity
+
+Each node exposes more than layout — translate **every** property to the stack's equivalent, not just
+the obvious ones. These are ordered by how easily they're silently dropped.
+
+- **Effects (`effects` / `styleIds.effect`).** Drop/inner shadow or blur. **The easiest fidelity to
+  lose**: they come from a _shared effect style_, so they read as one field and quietly vanish. A card
+  with a shadow in Figma but flat output is the classic miss (e.g. `DROP_SHADOW 0/4/8 #0000000D` →
+  `shadow-[0_4px_7px_rgba(0,0,0,0.05)]`). **A Figma radius is not a CSS length — scale it**
+  (measured against Figma's own renders): a shadow's blur is `radius × 0.85` in `box-shadow`
+  (offsets and spread as they are), and every blur is `radius × 0.43` in `filter: blur()` /
+  `backdrop-filter: blur()` — copying the radius makes a blur about twice too strong (at radius 8,
+  33/255 off against under 1). Figma is one Gaussian of σ = radius × 0.43 for blurs and shadows
+  alike, fitted off blurred edges at 1x and 2x — and Figma's own Dev Mode CSS is off too (it halves a
+  blur radius and copies a shadow's), so don't copy its numbers. A blur's `type` decides the CSS: `LAYER_BLUR` blurs the element itself
+  (`filter: blur`), but `BACKGROUND_BLUR` blurs what shows through from behind
+  (`backdrop-filter: blur` — the frosted-glass / glassmorphism pattern, typically paired with a
+  semi-transparent fill); emitting it as `filter`, or dropping it, loses the glass look entirely.
+  A `BACKGROUND_BLUR` marked **`drawn: false`** paints nothing in Figma: its node has no visible fill
+  with any opacity, and Figma blurs only behind one (a fill at 1% already blurs the whole shape). A
+  CSS `backdrop-filter` would still blur there, so emit none.
+  - **`blurType: "PROGRESSIVE"`** ramps the blur from `startRadius` at `startOffset` to `radius` at
+    `endOffset` (fractions of the node) — a header that blurs out toward one edge. A uniform blur is
+    the wrong look (16–35/255 off). Emit `cssLayers` as given, bottom first, each its own
+    `position: absolute; inset: 0; pointer-events: none` box: for `BACKGROUND_BLUR` overlays over the
+    node's background, for `LAYER_BLUR` the first styles the content and every later one is an
+    `aria-hidden` copy of that content stacked over it. Rendered against Figma: 0.9–2.9/255. An
+    effect style carries no `cssLayers` (no node to size it on), only the ramp.
+  - **`showShadowBehindNode: true`** (drop shadows only): the shadow also shows through the node's
+    translucent areas. `box-shadow` draws only outside the box — exactly Figma's `false` — so draw
+    this one as a box underneath the node instead: the shadow colour, moved by the offset, grown by
+    the spread on every side, `filter: blur(radius × 0.43)`. A shadow `blendMode` has no
+    `box-shadow` equivalent; keep the plain shadow unless the blend is the point.
+  - **`GLASS`**: Frost is `radius`; Light (`lightIntensity` / `lightAngle`), `refraction`, `depth`,
+    `dispersion` and `splay` bend and tint its edges. Render it as `backdrop-filter:
+    blur(radius × 0.43)` with the node's fill — measured, that matches Figma's centre (1/255) but not
+    its edges (13/255), where the refraction lives, and plain CSS cannot bend what shows through, so
+    say so. Applying glass in Figma also drops the fill's opacity to 20%; the fill already reads
+    that way.
+  - **`TEXTURE`** roughens the edges of everything it covers (`noiseSizeVector` is the grain,
+    `radius` how far it pushes, `clipToShape` keeps it inside the shape — clipped on a plain solid
+    it shows no change). There is no CSS for it: export the composited render where the rough edge
+    matters, and say what was dropped otherwise.
+- **Text / typography.** A TEXT node carries more than `characters` + font — and the rest reads as
+  one quiet field each, so it vanishes and the model re-guesses it off the raster. The shared style
+  attributes fold into the `textStyle` bundle in `globalVars`: `textCase` (`UPPER`/`LOWER`/`TITLE` →
+  `uppercase`/`lowercase`/`capitalize` — **the characters in the tree are the original casing, so a
+  dropped `UPPER` ships a lowercase button**), `textDecoration` (`UNDERLINE`/`STRIKETHROUGH` →
+  `underline`/`line-through` — a link with no underline is the classic miss), `lineHeight`
+  (`{unit,value}` → `leading-*`; absent = font default), `letterSpacing` (`{unit,value}` →
+  `tracking-*`; absent = 0), `paragraphSpacing` (px between the paragraphs `characters` splits into
+  at `\n` → margin between the `<p>`s you emit; absent = 0, the paragraphs butt together),
+  `paragraphIndent` (px first-line indent → `text-indent`), `fontVariationSettings` — a variable
+  font's axis values (`{ wght: 650, slnt: -4 }`), keyed by OpenType tag exactly like CSS
+  `font-variation-settings`, so `wght` is the real weight and the named `fontStyle` beside it may
+  still read `Regular`; **two bundles differing only here are two different weights, and taking the
+  weight from `fontStyle` ships both at 400** — and `textWrapStyle` — Figma's values are
+  CSS `text-wrap`'s verbatim, so `BALANCE` → `text-wrap: balance` (even line lengths; a designer sets
+  it on headings and pull quotes) and `PRETTY` → `text-wrap: pretty` (no orphan last word); absent =
+  `auto`, the browser default. Per-node (inline, not in the bundle):
+  `textAlignHorizontal`/`Vertical` (`CENTER`/`RIGHT`/`JUSTIFIED` → `text-center`/`text-right`/
+  `text-justify`; absent = left/top), `textTruncation: 'ENDING'` + `maxLines` (→ `line-clamp-N` /
+  `truncate`), and `textAutoResize` — how the text box sizes, the signal for whether its
+  width/height are real constraints: absent = hug (the box is just the text's own rendered size —
+  don't emit a width), `HEIGHT` = fixed width + auto height (the width is a wrap constraint — emit
+  it), `NONE` = fixed box (emit both, mind clipping); inside auto-layout trust
+  `layoutSizingHorizontal/Vertical` instead. Each is omitted when it's
+  the no-op default, so anything present is real intent — translate it, don't drop it.
+  - **`textWrapStyle` is per paragraph, not per node.** When a node's paragraphs disagree the
+    node-level field is absent and the real values ride in `segments` (a run carries it only when it
+    is not `auto`) — so a `segments` array whose runs differ only in `textWrapStyle` is one text
+    block with per-paragraph wrapping, not inline rich text.
+  - **Mixed (inline) styling → read `segments`.** When a value reads `"mixed"` (e.g. `fontSize` or
+    `textDecoration`), the node carries `segments` — each a run of uniform styling with its own
+    `characters`, `fontName` (with `variationSettings` when the family is variable), `fontSize`,
+    `fills` (hex), `textDecoration`, `textCase` over offsets
+    `start`/`end` (plus per-run `lineHeight`/`letterSpacing` when they differ). These describe runs
+    **within** the node's `characters` (not extra text) — emit each as its own span: the
+    underlined/coloured `Privacy Policy` inside a sentence, the bold word in a label, the smaller
+    `/mo` after a price. Dropping them flattens the whole string to one style (a link with no
+    underline, a price with no emphasis) — the classic mixed-text miss.
+  - **Inline links & lists → `segments` carry structure, not just style.** A run may carry
+    `hyperlink` (`{ type: 'URL' | 'NODE', value }`) → emit an `<a href>` (or router link for a
+    `NODE` target); a partial link is the reason a whole node reads mixed. A run may carry
+    `listOptions` (`ORDERED` / `UNORDERED`) with an `indentation` depth → emit real `<ol>`/`<ul>`
+    list items nested by depth, **not** newline-separated text with literal bullet characters. A
+    node whose _whole_ text is one uniform link instead carries a node-level `hyperlink`; a fully
+    uniform list still expands to a single `segment` so its `listOptions` survives.
+  - **Per-run tokens → a run's `styleIds` / `boundVariables` resolve like a node's own.** A run may
+    carry `styleIds` (`text` / `fill` → a shared text/fill style id) and `boundVariables` (e.g. a
+    colour token on `fills`), resolved to names in the top-level `styles` / `variables` maps just
+    like node-level bindings. Prefer the resolved token (the `Link/Default` text style, the
+    `Primary/500` colour) over the run's raw hex — on a mixed node the node-level fill reads `mixed`,
+    so a run's binding is the **only** place the inline link's colour/type token survives. Emit the
+    class/variable, not a one-off hex, so the link tracks the design system.
+- **Per-side borders.** When `strokeWeight` is `mixed`, the node carries `strokeWeights`
+  `{ top, right, bottom, left }` — emit only the non-zero sides (`border-t` / `border-b` / …),
+  **never a uniform `border`**. Collapsing a per-side stroke into a full border turns a table row
+  divider or an underline input into a full grid.
+- **Stroke alignment.** A stroke carries `strokeAlign` (`INSIDE` / `OUTSIDE` / `CENTER`). `INSIDE` is
+  a plain inset `border`, but `OUTSIDE` draws _outside_ the box — emit it as an `outline` or a
+  `box-shadow 0 0 0 Npx <colour>`, **never a plain `border`**, so it doesn't grow the box or shift
+  its position (selection rings / focus outlines are `OUTSIDE`). `CENTER` straddles the edge (half the
+  weight each side).
+- **Dashed / dotted strokes & line ends.** A stroke may carry `dashPattern` (px on/off run lengths)
+  → `border-style: dashed` (or `dotted` for short even runs), and for an SVG line/divider
+  `stroke-dasharray`. Without it a dashed separator or a cut-line renders solid. A `LINE` / `VECTOR`
+  stroke may also carry `strokeCap` (`ROUND` / `SQUARE`, or an arrowhead like `ARROW_LINES`) →
+  `stroke-linecap` / an SVG marker, and `strokeJoin` (`ROUND` / `BEVEL`) → `stroke-linejoin`; both
+  are omitted at their no-op defaults (`NONE` / `MITER`), so anything present is real intent.
+- **Per-corner radius.** When `cornerRadius` is `mixed`, the node carries `cornerRadii`
+  `{ topLeft, topRight, bottomRight, bottomLeft }` — round only those corners (`rounded-t` /
+  `rounded-tl` / …), **never a uniform radius**. A card rounded on one edge, a tab, or a chat bubble
+  round only some corners; collapsing to one radius squares them off or rounds the wrong side.
+- **Corner smoothing.** A node may carry `cornerSmoothing` (0–1; Figma's "iOS" preset is 0.6). Keep
+  its `border-radius` as is and add nothing for it — in particular not `corner-shape: squircle`.
+  Measured against Figma's own render on seven shapes (uniform and per-corner radii, square and wide
+  boxes, a small button, a pill), a plain radius matched Figma's outline better than `squircle` at
+  the same radius every time, with 4–16× less mismatch (about 200× on a pill, where smoothing
+  changes nothing); on a 200px box with a 60px radius at 0.6, the plain radius's mismatch is about
+  0.35% of the box's area. Figma's smoothing lengthens the curve where a squircle squares the
+  corner. On that 200px box, the best `corner-shape` fit found was only ~20% closer than plain,
+  needed a larger radius, and is worse than plain wherever `corner-shape` is unsupported. Only where
+  the exact curve is the point (an app icon), draw it as an SVG or `clip-path`.
+- **Blend mode.** A node may carry `blendMode` (`MULTIPLY` / `SCREEN` / `OVERLAY` / …) — map it to
+  `mix-blend-mode` (on the element) or `background-blend-mode` (a fill over an image). An overlay
+  swatch blended onto a photo reads as the wrong flat colour if you drop it.
+- **Masks.** A node with `isMask: true` clips its later siblings to its own shape (`maskType`
+  `ALPHA` / `LUMINANCE` / `GEOMETRY`). **Don't render the mask layer as ordinary content** — realise
+  it as the container's `overflow-hidden` + radius, a `clip-path`, or an SVG mask on the masked
+  siblings, and skip emitting the mask shape itself.
+- **Ellipse arc / ring.** An `ELLIPSE` carrying `arcData` is **not a plain circle** — a partial
+  sweep (`startingAngle`→`endingAngle`, radians) is a pie slice / gauge, and `innerRadius > 0`
+  (0–1 of the radius) cuts a hole for a ring / donut (a progress ring, a donut chart). Render it as
+  an SVG `<path>` arc (or `<circle>` with `stroke-dasharray` for a progress ring) / a `conic-gradient`
+  — **not** a filled `rounded-full` div, which loses the wedge and the hole. A full disc omits
+  `arcData`, so its presence always means a real arc.
+- **Gradient fills.** A fill of type `GRADIENT_LINEAR` / `GRADIENT_RADIAL` / `GRADIENT_ANGULAR` /
+  `GRADIENT_DIAMOND` carries `gradientStops` (`{ position 0–1, color hex }`) and `gradientTransform`
+  (the 2×3 axis matrix). **Emit a real CSS gradient — don't flatten it to a solid colour.** Map the
+  stops directly (`linear-gradient(<angle>, #A 0%, #B 100%)`, `radial-gradient(...)`). Each stop's
+  hex already carries the paint's own opacity, the way a `SOLID` hex does, so emit it as is and don't
+  add an `opacity` for the paint. A `GRADIENT_LINEAR` also carries **`cssAngle`** — the ready-to-emit degrees for
+  `linear-gradient(<cssAngle>deg, …)`. **Use it verbatim; never re-derive the angle from
+  `gradientTransform`.** The angle is not a property of the matrix alone: Figma positions the ramp in
+  the node's _normalized_ space, so the same matrix is a different angle on a differently shaped node
+  (a corner-to-corner ramp is `135deg` on a 200×200 node but `165.96deg` on a 400×100 one) — that
+  aspect correction is already baked into `cssAngle`. When `cssAngle` is absent the angle genuinely
+  isn't derivable (a paint style, which belongs to no node and so has no proportions, or a degenerate
+  matrix): fall back to the stops and say the direction was assumed. The radial / angular / diamond
+  types have no `cssAngle` — their CSS mapping is a centre and radii, not an angle. It is read-only:
+  writing a paint back ignores it, so a gradient's direction is changed through
+  `gradientTransform`, never by editing `cssAngle`.
+- **Image fit.** An `IMAGE` (or `VIDEO`) fill carries `scaleMode` — the object-fit equivalent:
+  `FILL` → `object-cover`, `FIT` → `object-contain`, `TILE` → `background-repeat: repeat`. Apply it
+  to the exported image so it isn't stretched or letterboxed. An image, video, pattern or shader paint
+  that isn't fully opaque also carries its own **`opacity`** (0–1, separate from the node's): put it
+  on that layer alone, the `<img>` or the layer carrying the background, not the whole element.
+- **Image crop.** `CROP` is not a cover. It shows a chosen part of the image, which may be zoomed
+  past cover, stretched to new proportions, rotated, or smaller than the layer and leave part of it
+  empty. The fill carries **`cssTransform`**, ready to emit: put the original bytes
+  (`save_image_fills`) in an `overflow: hidden` box as an `<img>` at `left: 0; top: 0`,
+  `width: 100%; height: 100%`, `max-width: none`, `transform-origin: 0 0`, and give it
+  `transform: <cssTransform>` **verbatim**. The raw matrix is there too, as `imageTransform` (the
+  layer's 0–1 box → the image's 0–1 space), but don't re-derive the CSS from it. Rendered against
+  Figma, a pixel-aligned crop matched exactly. Others came within the same 2–6% of pixels that any
+  scaled image differs by between the two renderers, where `object-fit: cover` was 97–100% off.
+  When `cssTransform` is absent, the crop can't be expressed this way (a rotated crop on a paint style
+  with no size): export the composited render instead.
+- **Pattern fills.** A `PATTERN` fill tiles a source layer (`sourceNodeId`) across the element — it is
+  **not** a flat colour. Export that layer as the tile (`save_screenshots` on `sourceNodeId`), then
+  with the tile size **t** = the source's size × `scalingFactor` and the period **p** = t × (1 +
+  `spacing`) per axis:
+  - `background-image` the tile in a **p**-sized cell, tile at the cell's top-left (with no
+    `spacing` the cell is the tile itself); `background-size: p`; `background-repeat: repeat`.
+  - `background-position`: `horizontalAlignment` START → `0`, CENTER → `(box − t) / 2`, END →
+    `box − t`, and the same for `verticalAlignment` on y (absent = START). Compute it from **t**,
+    not **p**: the CSS `center` keyword centres the whole cell, which is wrong as soon as there is
+    spacing (measured 90% off).
+  - `HORIZONTAL_HEXAGONAL`: the cell is one period wide and two tall, the second row's tile shifted
+    half a period (draw it at +p/2 and −p/2 so the cell tiles cleanly). `VERTICAL_HEXAGONAL`: two
+    periods wide, the second column shifted half a period (at +p/2 and −p/2 on y).
+  - A negative `spacing` makes tiles overlap: draw the cell as an SVG that lets them.
+
+  Rendered against Figma, this matched on every combination tried (scaling, spacing, each
+  alignment, both hexagonal layouts): 0–2.75% of alpha, all of it antialiasing, no pixel visibly
+  off — where drawing a hexagonal pattern as a plain grid was 60% off. Don't flatten it to a solid
+  colour.
+
+- **Repeat groups (`TRANSFORM_GROUP`).** A Figma Draw repeat group draws its content — its
+  children — several times: a dial's ticks, a row of dots, petals round a centre. Without the
+  repeat, a 12-tick dial is one tick. The node carries `transformModifiers` (how it repeats) and
+  `repeatTransforms`: one CSS transform per **extra** copy, in the group's own coordinates. Draw the
+  content once as it sits in the group, then once more per entry inside a box the group's size at
+  its top-left, `transform-origin: 0 0`, `transform: <entry>` verbatim. Measured against Figma:
+  within 1.4% of alpha, the same as Figma's own SVG export rendered in the browser, where reading a
+  RADIAL `offset` as a radius (as the plugin docs describe it) was 88% off — it is the circle's
+  diameter. Place the content inside that box with `transform: translate()` rather than fractional
+  `left` / `top`: the browser snaps those to whole pixels (up to 13% off on a 6 px tick). A group
+  whose modifiers are all LINEAR is also a plain flex row / column, `gap` = the step between copies
+  minus the content's size along that axis. `repeatTransforms` is left out past 100 copies — then
+  export the group, as you would anyway when it is decorative art. Copies that step backwards (a
+  negative offset) are drawn outside the group's box. A turned or flipped repeat group needs nothing
+  more: its entries are already in its parent's axes, so the boxes go at the group's `x` / `y`
+  unturned, each child inside with its own `cssTransform` — within 0.1% of Figma on turned and
+  flipped groups.
+- **Brush, dynamic and width-profile strokes.** A node carrying `complexStrokeProperties` (a
+  textured STRETCH or SCATTER brush, or a DYNAMIC hand-drawn wobble) or
+  `variableWidthStrokeProperties` (a stroke that thickens and thins along its path) has a stroke no
+  CSS border can draw, and none of them draws a dash pattern. Export the node: a dynamic or
+  width-profile stroke exports as one small SVG path (0.5 KB measured), a brush as a textured one
+  that is far smaller as PNG at 2× (a scatter stroke: 21 KB as PNG, 189 KB as SVG). On a frame whose
+  children are live content, a plain `border` is only an approximation of such a stroke — say so.
+  Every custom brush reads `brushName: 'CUSTOM'`, so two of them cannot be told apart from their
+  fields: an instance holding such a stroke is never deduped — export each instance's stroke from
+  its own node rather than reusing the first one's asset.
+- **Rotated and flipped nodes.** A node turned or mirrored within its parent carries
+  `cssTransform`, and `flipped: true` when it is mirrored — `rotation` alone reads the same with or
+  without a flip (a node flipped top to bottom reads 0). Place its box at `x` / `y` with
+  `transform-origin: 0 0` and `transform` set to `cssTransform` verbatim: `x` / `y` is the node's
+  origin, not its bounding box's top-left. Measured on turned and flipped shapes, that is within
+  0.3% of Figma; turning by `rotation` alone was 79% off and rotating about CSS's default centre 88%.
+  In an auto-layout flow Figma gives a turned or flipped child its bounding box's room (a 100 × 60
+  node turned 30° takes 116.6 px of a row), which the node reports as `boundingBox`: emit a flow
+  item `boundingBox.width` × `boundingBox.height` and, absolutely inside it, the node at left
+  `-boundingBox.x`, top `-boundingBox.y` with `transform-origin: 0 0` and `cssTransform` — within
+  0.7% of Figma, against 35% for a turned flow item without that box. A `GROUP` carries no `cssTransform` even when turned or flipped: its children already
+  carry it, so never turn a group's wrapper by its `rotation` — that applies it twice, and a flip
+  twice is no flip.
+- **Render bounds.** A Draw node — one of those strokes, a repeat group, text on a path — may carry
+  `renderBounds` `{ x, y, width, height }`: the box it actually paints into, as offsets from its
+  own `x` / `y` in its parent's axes. An export of the node covers exactly that box (measured on a
+  published brush kit: 2× exports of its strokes are `renderBounds` × 2 to the pixel), so put the
+  exported asset at `x + renderBounds.x`, `y + renderBounds.y`, not at `width` / `height` (a dynamic
+  stroke on a 23 px-tall path paints 86 px tall). A rotated or flipped node's export is already
+  turned: place it there as it is, without the node's rotation. It can also be
+  smaller than the node, where a clipping parent cuts the paint off — the export is cut the same way.
+- **Text on a path (`TEXT_PATH`).** Lettering set along a curve — round a badge, along a wave. It
+  carries the run-level half of a TEXT node's typography (`characters`, font, size, `textCase`,
+  `letterSpacing`, fills, `segments` when mixed) and none of the box-level half (no line height,
+  decoration or auto-resize). Export it — the glyphs come out outlined, so it renders exactly — and
+  give the image `characters` as its accessible name (`aria-label` / `<title>`), placed at
+  `renderBounds`.
+- **Shader fills & effects.** A `SHADER` fill, stroke or effect is procedural — there is no CSS for it,
+  so its pixels ship as the composited render (`get_screenshot` on the node), never as a guessed
+  gradient or colour. It carries `shaderId` and `shaderProperties` (`{ name, type, value }`, colours
+  as hex; a value that is a `VARIABLE_ALIAS` names its token in the `variables` table). Use them to
+  say which shader it is and what it is set to — e.g. when the codebase already has a component or
+  canvas effect that takes the same parameters — not to re-implement the shader. `name` is the
+  shader's own parameter identifier, which can differ from the label in Figma's panel (`warp` shows
+  as "Flow"), and a dropdown parameter is only its NUMBER index — don't present either as what the
+  designer sees.
+- **Noise effects.** A `NOISE` effect is grain drawn over the node: a smooth noise field cut at a
+  threshold into blobs, in design px (it scales with the element, not the screen). Render it as an
+  SVG filter laid over the node (`position: absolute; inset: 0; pointer-events: none`, inside the
+  node's clip), sized in CSS px with no `viewBox`, so the filter's units are Figma's:
+
+  ```html
+  <svg width="100%" height="100%" aria-hidden="true">
+    <filter id="grain" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="{1.1/x} {1.1/y}" numOctaves="2" result="n" />
+      <feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" />
+      <feComponentTransfer result="mask">
+        <feFuncA type="linear" slope="40" intercept="{-40 × t}" />
+      </feComponentTransfer>
+      <feFlood flood-color="{color}" />
+      <feComposite in2="mask" operator="in" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#grain)" />
+  </svg>
+  ```
+
+  `x`/`y` are `noiseSizeVector`, `t = 0.81 − 0.33 × density`, and `flood-color` is `color` with its
+  alpha. `DUOTONE` also paints the field's other end in `secondaryColor`: a second mask from
+  `values="… -1 0 0 0 1"` (the inverted field) with the same transfer, flooded with
+  `secondaryColor`, merged over the first. `MULTITONE` grains are many random colours, so flood a
+  second, coarser `feTurbulence` (`baseFrequency` halved, `numOctaves="1"`) through
+  `feColorMatrix type="saturate" values="3"` and alpha `opacity` instead of a colour.
+
+  Measured against Figma's own render, this keeps the overall tone within about 3% and the grain's
+  size and stretch, where the usual web grain snippet (`baseFrequency="0.65" numOctaves="3"`) is as
+  far from Figma as no noise at all. The grain itself is random, so it never matches pixel for
+  pixel. Three limits to say rather than hide: a `noiseSizeVector` of 2 or less is sub-pixel speckle
+  in Figma, which this reproduces as tone only; `MULTITONE` below full density renders lighter than
+  Figma's; and a `density` above 1 only comes from a number variable bound to it, which Figma
+  renders as a flat tint of the grain colour — emit that tint, not grain. Figma's API doesn't report
+  a noise effect's blend mode, so the grain is always laid on normally.
+
+- **Containers first — the tree's nesting is the markup's nesting.** Emit **one container element per
+  frame** and keep the parent/child relationships the payload gives you. Never flatten a section's
+  frames into a flat run of siblings: the frame that disappears is the one that owned the `padding`
+  and the `itemSpacing`, so every child then has to be placed by hand, and the result only holds at
+  the design's exact width. Spacing belongs to the **container**, not to the children — `itemSpacing`
+  is the parent's `gap`, `padding*` is the parent's `padding`. Never re-express either as per-child
+  `margin` / `margin-top` / `margin-bottom`, and never place a child of an auto-layout frame by
+  absolute offset. `margin` is only for a genuine **one-sided** offset between elements that share no
+  container; where a container exists, `gap` and `padding` are the answer. The tell that this went
+  wrong: sibling elements each carrying their own `margin-bottom` where the parent has one
+  `itemSpacing`, or a stack of `position: absolute` children under a frame that has a `layout`.
+  This holds for **every** shape the tool returns — including a degraded payload that carries layout
+  without appearance (see [Large designs](#large-designs-build-section-by-section-and-ground-every-section)).
+- **Auto-layout & Grid — read spacing off `layout`, never eyeball it.** Each auto-layout frame carries
+  a `layout` object with the _exact_ spacing; don't reverse-engineer padding/gap/justify from child
+  `x/y/w/h`. `mode` `HORIZONTAL`/`VERTICAL` → `flex-row`/`flex-col`; `padding*` → `p-*`; for H/V
+  `itemSpacing` → `gap`, `primaryAxisAlignItems`/`counterAxisAlignItems` → `justify-*`/`items-*`
+  (`SPACE_BETWEEN` → `justify-between`, `SPACE_EVENLY` → `justify-evenly`, `SPACE_AROUND` →
+  `justify-around` — three distinct distributions, not synonyms). When `layoutWrap: 'WRAP'` (a tag cloud / chip group /
+  gallery) the frame also carries the cross-axis spacing: `counterAxisSpacing` is the gap **between
+  wrapped tracks** — rows of a `HORIZONTAL` wrap (→ `flex-wrap` + the row part of `gap-x/gap-y`),
+  columns of a `VERTICAL` one (`flex-col flex-wrap` + the column part) — with a single `gap` only when
+  it equals `itemSpacing`. `counterAxisAlignContent: 'SPACE_BETWEEN'` distributes the tracks
+  (`align-content: space-between`, and `counterAxisSpacing` is then absent: Figma ignores it there).
+  Don't collapse a wrapping flex to a single-axis `gap` — the track gap is its own value. `mode: 'GRID'` → `display:grid` with
+  `gridRowCount`/`gridColumnCount` → `grid-template-rows`/`grid-template-columns: repeat(N, 1fr)`,
+  `gridRowGap`/`gridColumnGap` → `gap`, and optional `gridRowSizes`/`gridColumnSizes` tracks
+  (`FIXED`→px, `FLEX`→fr, `HUG`→`auto` — content-sized, measured identical) — **emit a real CSS grid,
+  don't flatten it to stacked flex**. A grid child
+  carries `gridChild` only when it's pinned or spanning (`rowAnchorIndex`/`columnAnchorIndex` →
+  `grid-row`/`grid-column` anchor+1, `rowSpan`/`columnSpan` → span N, `horizontalAlign`/
+  `verticalAlign` → `justify-self`/`align-self`); a child with **no** `gridChild` is auto-flowed — let
+  the grid place it. `gridItemsPositioning: 'ROW_AUTO_FLOW'` marks a grid whose children flow into
+  cells by layer order (none of them carries an anchor): emit no per-item placement and render a
+  repeated item from data. `gridAutoTracks: 'ROWS'` means the rows follow the items, and Figma grows
+  the frame by every row it adds — even at a `FIXED` height — while a `FLEX` row keeps the height it
+  renders at (all measured). So don't fix the grid's height: list the rows in `grid-template-rows`
+  (`FIXED`→px, `HUG`→`auto`, `FLEX`→the px it renders at: the frame's height minus padding, gaps and
+  the other rows, split by the `FLEX` values) and give `grid-auto-rows` the **last** row's track, the
+  one Figma copies into each added row. Measured against Figma renders: identical at the designed item
+  count, and with three items more it still matches where `1fr` rows in the fixed height squeezed every
+  row. Absent, placement is `MANUAL` and the row count fixed. A node's own `layoutSizingHorizontal`/`Vertical` (`FILL`→`flex-1`/stretch,
+  `HUG`→fit-content, `FIXED`→explicit) + `layoutGrow` + `layoutAlign` decide how it fills its parent.
+  A `FIXED` size is real intent, not the measured content size — emit it, don't let the element
+  collapse to its content (e.g. a shadcn `Button` defaults to content width; a `FIXED` 220px button
+  needs the width pinned or it comes out too narrow).
+- **Min/max size bounds — explicit responsive constraints, never infer when present.** A node may
+  carry `minWidth` / `maxWidth` / `minHeight` / `maxHeight` (auto-layout frames and their direct
+  children; only set bounds appear). These are the designer's literal `min-w-* / max-w-* / min-h-* /
+  max-h-*` — map them directly and let the corresponding `w`/`h` stay fluid. When a node carries
+  no bounds, fall back to the heuristic: **on a control that would otherwise hug its content — a
+  button/badge/chip/tag (auto-layout + a `FILL`/`layoutGrow` text child) whose `FIXED` width
+  exceeds its content — prefer `min-w-*` over a hard `w-*`** (designers often express "at least
+  this wide, but let longer/i18n text grow" as `FIXED`). Reserve a hard `w-*` for things that are
+  genuinely a fixed size (sidebars, fixed cards, avatars).
+- **Layout grids — the frame's own responsive column system (don't infer breakpoints, read them).**
+  A frame may carry `layoutGrids`: `COLUMNS` / `ROWS` with a `count` (e.g. 12), `gutterSize`,
+  `alignment`, and `offset` (the page margin from the frame edge → container horizontal padding), or
+  a uniform `GRID` with `sectionSize` (an 8px baseline). This is the designer's **explicit**
+  responsive scaffold — map a `COLUMNS` grid straight to your CSS grid / container (`grid-cols-12
+  gap-[gutter]`, the page `max-w` + `px-[offset]`) instead of reverse-engineering column widths and
+  margins from child geometry. When several breakpoint frames each carry a
+  `count: 12` columns grid, that's the shared track system across breakpoints — keep the columns
+  fixed and let the gutters/margins flex. A uniform `GRID` is the spacing baseline: round paddings/
+  gaps to it. This is ground truth the geometry only approximates, so prefer it.
+- **Scroll overflow.** A clipping frame may carry `overflowDirection` (`HORIZONTAL` / `VERTICAL` /
+  `BOTH`) — the axis the content scrolls on. Emit `overflow-x-auto` / `overflow-y-auto` / `overflow-auto`
+  (a horizontal card carousel, a scrollable panel), don't just clip it. Omitted (`NONE`) means no scroll.
+  It may also carry `numberOfFixedChildren`: that many **leading** children stay pinned while the rest
+  scroll — a `position: sticky` header/toolbar inside the scroll container, not an ordinary child.
+- **Aspect ratio — a locked resize contract, not a one-off size.** A node may carry
+  `targetAspectRatio` (`{ x, y }`): the width:height ratio it resizes toward (a 16:9 video box, a
+  square avatar, a hero that must keep its shape across breakpoints). Emit `aspect-[x/y]` and let one
+  dimension stay fluid, instead of freezing both `w` and `h` to the measured pixels.
+- **Stacking & stroke space — non-default auto-layout painting.** An auto-layout frame may carry
+  `itemReverseZIndex: true` (later children paint _under_ earlier ones — the overlapping-avatars /
+  fanned-cards stack, usually with a negative `itemSpacing`): CSS paints later DOM nodes on top, so
+  reverse it (`flex-direction: row-reverse` with reversed DOM, or explicit `z-index`) or the stack
+  overlaps the wrong way. `strokesIncludedInLayout: true` means borders occupy layout space (Figma
+  excludes them by default) — account for the stroke width in the gap/padding math (it's the
+  `box-sizing: border-box` case). Both omitted = the defaults; nothing to do.
+- **Dev Mode annotations — the designer's notes to _you_, ground truth over inference.** A node may
+  carry `annotations` (`{ label, labelMarkdown, categoryId, properties }[]`): explicit developer
+  instructions pinned in Dev Mode ("use the brand token here", "only visible on hover", "this is the
+  live region"). Treat them as authoritative — they outrank anything you'd infer from geometry or a
+  screenshot, and `properties` names the fields the note is about (e.g. `["fills"]`). Reflect the
+  intent in the code (the right token, the right state, the right ARIA) and surface anything you
+  can't express as a TODO rather than dropping it.
+- **Absolute positioning & constraints — a node placed by coordinates, not flow.** Two
+  mutually-exclusive signals say "this isn't in an auto-layout flow"; read the anchor so it survives a
+  resize instead of being hardcoded to a corner.
+  - **`layoutPositioning: 'ABSOLUTE'`** — an auto-layout child that opted _out_ of the flow (a badge
+    pinned to a card corner, a close `×` on a modal, a floating action button). It overlaps siblings
+    and takes no space: make the parent `relative` and the child `absolute`, placed from its `x`/`y`
+    (offsets inside the parent) at its `width`/`height`. **Leaving it in the flex/grid flow pushes the
+    siblings** — the classic miss (a corner badge that shoves the card title sideways).
+  - **`constraints` `{horizontal, vertical}`** — a child of a frame that is **not** auto-layout at
+    all; it's positioned by `x`/`y` and the constraint is its **resize anchor**. Map each axis to the
+    edge you pin, not always top-left: horizontal `MIN`→`left`, `MAX`→`right`, `CENTER`→centered
+    (`left-1/2 -translate-x-1/2`), `STRETCH`→pin both (`left-N right-M`), `SCALE`→proportional
+    (`%`-based left + width); vertical `MIN`→`top`, `MAX`→`bottom`, `CENTER`→centered-y,
+    `STRETCH`→`top-N bottom-M`, `SCALE`→`%`. A `MAX`/right-anchored element emitted as `left-[Xpx]`
+    drifts at every width but the design's — read the constraint, don't assume the top-left corner.
+  - **A frame with no `layout` is not automatically an absolute canvas.** `constraints` tells you how
+    a child was _anchored_ in Figma; it does not mean the right CSS is a stack of absolutely
+    positioned boxes. Many files are simply drawn without auto-layout, and emitting one `position:
+    absolute` per child there reproduces the artboard rather than the design: it breaks at every
+    other width and is the single biggest source of unmaintainable generated markup. So read the
+    geometry for **intent** before reaching for `absolute`: children in a single column at a shared
+    `x` with a repeating `y` delta are a `flex-col` with that delta as `gap`; children on a shared
+    `y` are a `flex-row`; a uniform inset from the parent's edges is `padding`. Emit the flow
+    version, and reserve real absolute positioning for what is genuinely layered — a badge over a
+    card, a caption over an image, a decorative blob. When you infer a flow this way, say so: it is
+    inferred from geometry, not grounded in a `layout` object.
+
+## Large designs: build section by section, and ground every section
+
+A full page can be too big to ground in one shot — a dense whole-page tree can exceed the context
+window (a single ~330-node frame can blow the token cap). When that happens, **do not retry the same
+oversized call** (a dead loop, not progress), and **do not depth-cap the whole page** (a shallow tree
+throws away the structure inside each section → empty cards/rows). Scope **horizontally** instead:
+
+1. Get the page's **top-level section node ids** cheaply first — `get_design_context` at
+   `detail: minimal` (and/or a small `depth`) just to see the section list, or `get_design_context` on
+   the page and read the direct children.
+2. Then `get_design_context` **each section by its `nodeId` at full detail** (`dedupeComponents: true`),
+   build that section, and move on. One section in context at a time.
+
+The tool enforces this on the worst cases, and it always says which shape you got in a **leading
+`note`** — read that note first, it tells you what the payload is and what it is missing:
+
+- **`sectionPlan`** (`{ sections: [{ nodeId, name, nodes }] }`) — the normal answer for a tree too
+  big for one call, and **not a lesser result**: it _is_ step 1, already done. Ground each listed
+  section by its `nodeId` as in step 2 and each one comes back at **full** detail, with its layout
+  _and_ its colours, type and tokens — strictly more than any whole-tree view that had to drop half
+  its fields to fit. A section that is itself too big returns its own plan; keep descending, it
+  converges quickly (in practice two levels, onto sections of a few dozen nodes).
+- **Layout without appearance** — a tree that overshot by only a little. It is intact and every
+  frame still carries its `layout` (mode, `padding*`, `itemSpacing`, alignment), every node its
+  sizing/`constraints`, every text its `characters`. What is gone is colour, typography, effects and
+  token bindings. **Build the full structure from this** — containers, flex/grid, padding, gap —
+  then `get_design_context` each section at full detail for its colours and type before styling it.
+  Do **not** treat missing appearance as licence to guess it off the screenshot.
+- **Layout only / structure only (compact)** — the last resorts, and only for a subtree with nothing
+  to split into. Structure-only carries no `layout` at all: it is a **map, not a spec**. Use it to
+  pick what to drill into, never to generate from, and in particular do not turn its `x`/`y` deltas
+  into margins — the spacing they encode belongs to a `layout` you have not been given yet.
+
+**Ground every section the same way — never eyeball values off the screenshot for "the easy ones".**
+This is the cardinal failure: grounding the first sections properly, then guessing the rest to save
+effort. It produces a cascade of systematic errors — heading font-sizes all guessed too small, an
+accent bar the wrong colour, paddings off, a missing border — **even though `get_design_context` had
+every correct value the whole time**. The screenshot is for visual intent (the rough look), never for
+values. If you're about to type a px size, colour, font-size, radius, or spacing you did **not** read
+from grounding, stop and `get_design_context` that node.

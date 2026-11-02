@@ -1,0 +1,211 @@
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  padding: 0 clamp(1.25rem, 6vw, 6rem);
+}
+
+.topbar,
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar {
+  min-height: 5.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--ink);
+  font-size: 1.5rem;
+  font-weight: 750;
+  letter-spacing: -0.08em;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.7rem;
+  background: var(--ink);
+  color: white;
+  font-size: 1.25rem;
+  letter-spacing: -0.1em;
+  line-height: 1;
+}
+
+.topbar-label,
+.footer {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+main {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 4rem 0;
+}
+
+.welcome-card {
+  position: relative;
+  display: flex;
+  width: min(100%, 68rem);
+  min-height: 28rem;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(2rem, 7vw, 6.5rem);
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  box-shadow: 0 2rem 6rem rgb(24 48 54 / 7%);
+}
+
+.welcome-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 37rem;
+}
+
+.eyebrow {
+  color: var(--accent-dark);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+h1 {
+  max-width: 12ch;
+  margin: 1.2rem 0 1rem;
+  color: var(--ink);
+  font-size: clamp(2.8rem, 6.4vw, 5.2rem);
+  font-weight: 650;
+  letter-spacing: -0.07em;
+  line-height: 0.99;
+}
+
+.welcome-copy p {
+  max-width: 34rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 1.7rem;
+  color: var(--accent-dark);
+  font-size: 0.93rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.text-link:hover {
+  color: var(--ink);
+}
+
+.text-link:focus-visible,
+.brand:focus-visible {
+  border-radius: 0.25rem;
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.welcome-mark {
+  position: absolute;
+  right: 6%;
+  bottom: -4rem;
+  display: flex;
+  height: 24rem;
+  align-items: center;
+  gap: 0.7rem;
+  transform: rotate(-12deg);
+}
+
+.mark-line {
+  width: clamp(0.7rem, 2vw, 1.45rem);
+  height: 10rem;
+  border-radius: 99px;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-light) 100%);
+  opacity: 0.15;
+}
+
+.mark-line-short {
+  height: 5rem;
+}
+
+.mark-line-mid {
+  height: 14rem;
+}
+
+.mark-line-tall {
+  height: 20rem;
+}
+
+.not-found {
+  width: min(100%, 42rem);
+  padding: 4rem 0;
+}
+
+.not-found h1 {
+  font-size: clamp(2.6rem, 6vw, 4.3rem);
+}
+
+.footer {
+  min-height: 4.5rem;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    padding: 0 1.25rem;
+  }
+
+  .topbar {
+    min-height: 4.5rem;
+  }
+
+  main {
+    padding: 2rem 0;
+  }
+
+  .welcome-card {
+    min-height: 32rem;
+    align-items: flex-start;
+    padding: 2.5rem 1.6rem;
+  }
+
+  .welcome-mark {
+    right: -2.2rem;
+    bottom: -5rem;
+    opacity: 0.7;
+  }
+
+  .welcome-copy p {
+    font-size: 0.98rem;
+  }
+
+  .footer {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 5rem;
+  }
+}

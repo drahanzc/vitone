@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/assessments/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_public_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public/links/{token}": {
         parameters: {
             query?: never;
@@ -132,7 +148,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/public/links/{token}/submissions": {
+    "/public/links/{token}/assessments": {
         parameters: {
             query?: never;
             header?: never;
@@ -141,7 +157,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["create_submission"];
+        post: operations["create_linked_assessment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -172,54 +188,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["get_public_report_pdf"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/public/submissions/{id}/finalize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["finalize_submission"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/public/submissions/{id}/readings/{number}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["upload_reading"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/public/submissions/{id}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_public_status"];
         put?: never;
         post?: never;
         delete?: never;
@@ -276,16 +244,80 @@ export interface paths {
         patch: operations["update_link"];
         trace?: never;
     };
-    "assessment-links/{id}/submissions": {
+    "assessment-links/{id}/assessments": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["list_link_submissions"];
+        get: operations["list_link_assessments"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "assessments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_linked_assessment"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_linked_assessment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "assessments/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_center_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "assessments/{id}/report.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_center_report_pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "assessments/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retry_linked_assessment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -388,70 +420,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "submissions/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_submission"];
-        put?: never;
-        post?: never;
-        delete: operations["delete_submission"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "submissions/{id}/report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_center_report"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "submissions/{id}/report.pdf": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_center_report_pdf"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "submissions/{id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["retry_submission"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -532,6 +500,19 @@ export interface components {
             submission_count: number;
             title: string;
         };
+        AssessmentListItem: {
+            completed_at?: string | null;
+            created_at: string;
+            headline: string[];
+            /** Format: uuid */
+            id: string;
+            learner_reference: string;
+            status: string;
+        };
+        AssessmentPage: {
+            items: components["schemas"]["AssessmentListItem"][];
+            next_cursor?: string | null;
+        };
         /** @description One clip produced by splitting the original assessment recording. */
         AssessmentReading: {
             /** Format: uuid */
@@ -566,12 +547,27 @@ export interface components {
              */
             status: string;
         };
+        AssessmentReadingSummary: {
+            created_at: string;
+            /** Format: int32 */
+            duration_ms: number;
+            /** Format: int32 */
+            reading_index: number;
+        };
         /** @description Final assessment report and its creation time. */
         AssessmentReport: {
             /** Format: uuid */
             assessment_id: string;
             content: components["schemas"]["ReportContent"];
             generated_at: string;
+        };
+        AssessmentStatusResponse: {
+            failure_message?: string | null;
+            report_url?: string | null;
+            status: string;
+        };
+        AssessmentSummary: {
+            items: components["schemas"]["ReportItem"][];
         };
         AuthTokensResponse: {
             access_token: string;
@@ -615,18 +611,26 @@ export interface components {
             passage_id: string;
             title: string;
         };
-        CreateSubmissionRequest: {
+        CreateLinkedAssessmentRequest: {
+            /**
+             * Format: binary
+             * @description Original recording containing all required readings.
+             * @example assessment.webm
+             */
+            audio: string;
             consent: boolean;
             consent_version: string;
+            /** @description Optional learner email address. */
             email?: string | null;
+            /** @description Learner identifier used by the center. */
             learner_reference: string;
         };
-        CreatedSubmissionResponse: {
+        CreatedAssessmentResponse: {
+            /** Format: uuid */
+            assessment_id: string;
+            assessment_token: string;
             report_url: string;
             status: string;
-            /** Format: uuid */
-            submission_id: string;
-            submission_token: string;
         };
         ErrorBody: {
             error: components["schemas"]["ErrorDetail"];
@@ -641,9 +645,6 @@ export interface components {
          * @enum {string}
          */
         ExpectedProminence: "prominent" | "unmarked";
-        FinalizeResponse: {
-            status: string;
-        };
         HealthResponse: {
             status: string;
         };
@@ -652,6 +653,19 @@ export interface components {
          * @enum {string}
          */
         IntonationSegmentRole: "nonfinal" | "final" | "alternative_a" | "alternative_b";
+        LinkedAssessmentDetailResponse: {
+            completed_at?: string | null;
+            created_at: string;
+            failure_code?: string | null;
+            /** Format: uuid */
+            id: string;
+            learner_email?: string | null;
+            learner_reference: string;
+            readings: components["schemas"]["AssessmentReadingSummary"][];
+            status: string;
+            submitted_at?: string | null;
+            summary?: components["schemas"]["AssessmentSummary"] | null;
+        };
         LoginRequest: {
             /** @description Center owner's email address. */
             email: string;
@@ -691,6 +705,11 @@ export interface components {
              * @example check-items.csv
              */
             check_item: string;
+            /**
+             * @description Optional learner-facing context stored with this passage version.
+             * @example The passage describes a cousin adjusting to life in a new city.
+             */
+            context?: string | null;
             /**
              * @description Validate and return the version and hash without writing to PostgreSQL.
              * @example true
@@ -754,6 +773,8 @@ export interface components {
             start_word_id: string;
         };
         PassagePackage: {
+            /** @description Optional learner-facing context associated with this immutable passage version. */
+            context?: string | null;
             id: string;
             locale: string;
             phoneme_alphabet: string;
@@ -898,7 +919,10 @@ export interface components {
             formats: string[];
             /** Format: int64 */
             max_audio_bytes: number;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Maximum duration of one complete recording containing all required readings.
+             */
             max_audio_seconds: number;
         };
         PublicLinkResponse: {
@@ -911,6 +935,7 @@ export interface components {
             title: string;
         };
         PublicPassage: {
+            context?: string | null;
             id: string;
             text: string;
             title: string;
@@ -1012,56 +1037,8 @@ export interface components {
             expected_word_id?: string | null;
             reason: string;
         };
-        SubmissionDetailResponse: {
-            completed_at?: string | null;
-            created_at: string;
-            failure_code?: string | null;
-            /** Format: uuid */
-            id: string;
-            learner_email?: string | null;
-            learner_reference: string;
-            readings: components["schemas"]["SubmissionReadingResponse"][];
-            status: string;
-            submitted_at?: string | null;
-            summary?: components["schemas"]["SubmissionSummary"] | null;
-        };
-        SubmissionListItem: {
-            completed_at?: string | null;
-            created_at: string;
-            headline: string[];
-            /** Format: uuid */
-            id: string;
-            learner_reference: string;
-            status: string;
-        };
-        SubmissionPage: {
-            items: components["schemas"]["SubmissionListItem"][];
-            next_cursor?: string | null;
-        };
-        SubmissionReadingResponse: {
-            /** Format: int32 */
-            duration_ms: number;
-            /** Format: int32 */
-            reading_number: number;
-            uploaded_at: string;
-        };
-        SubmissionStatusResponse: {
-            failure_message?: string | null;
-            report_url?: string | null;
-            status: string;
-        };
-        SubmissionSummary: {
-            items: components["schemas"]["ReportItem"][];
-        };
         /** @enum {string} */
         UnscoredReason: "UNSUPPORTED" | "AMBIGUOUS" | "UNASSESSABLE" | "INCOMPLETE" | "NO_TARGETS" | "TARGET_RECONCILIATION";
-        UploadedReadingResponse: {
-            /** Format: int32 */
-            duration_ms: number;
-            /** Format: int32 */
-            reading_number: number;
-            status: string;
-        };
     };
     responses: never;
     parameters: never;
@@ -1380,7 +1357,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Import one passage from its six version-matched CSV exports. Files use the field names shown in PassageImportRequest. */
+        /** @description Import one passage from its six version-matched CSV exports, with optional learner-facing context. Files use the field names shown in PassageImportRequest. */
         requestBody: {
             content: {
                 "multipart/form-data": components["schemas"]["PassageImportRequest"];
@@ -1620,6 +1597,46 @@ export interface operations {
             };
         };
     };
+    get_public_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Student-visible assessment state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentStatusResponse"];
+                };
+            };
+            /** @description Assessment token required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     open_link: {
         parameters: {
             query?: never;
@@ -1669,7 +1686,7 @@ export interface operations {
             };
         };
     };
-    create_submission: {
+    create_linked_assessment: {
         parameters: {
             query?: never;
             header?: {
@@ -1680,23 +1697,24 @@ export interface operations {
             };
             cookie?: never;
         };
+        /** @description Learner metadata, current consent, and one recording containing all required readings */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateSubmissionRequest"];
+                "multipart/form-data": components["schemas"]["CreateLinkedAssessmentRequest"];
             };
         };
         responses: {
-            /** @description Submission created */
-            201: {
+            /** @description Assessment accepted and queued */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreatedSubmissionResponse"];
+                    "application/json": components["schemas"]["CreatedAssessmentResponse"];
                 };
             };
-            /** @description Invalid submission request */
-            401: {
+            /** @description Invalid multipart fields */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1722,7 +1740,16 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Consent is required */
+            /** @description Audio exceeds the upload limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Consent or audio is invalid */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1813,170 +1840,6 @@ export interface operations {
             };
             /** @description PDF renderer is unavailable */
             503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    finalize_submission: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Submission already finalized */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FinalizeResponse"];
-                };
-            };
-            /** @description Analysis queued */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FinalizeResponse"];
-                };
-            };
-            /** @description Submission token required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission cannot be finalized */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Required readings are missing */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    upload_reading: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                number: number;
-            };
-            cookie?: never;
-        };
-        /** @description Raw audio bytes; audio/wav, audio/webm, audio/mp4 and audio/ogg are accepted */
-        requestBody: {
-            content: {
-                "audio/wav": string;
-            };
-        };
-        responses: {
-            /** @description Reading stored */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UploadedReadingResponse"];
-                };
-            };
-            /** @description Submission token required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission is finalized */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Audio exceeds upload limit */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Audio or reading number is invalid */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    get_public_status: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Student-visible submission state */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubmissionStatusResponse"];
-                };
-            };
-            /** @description Submission token required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission not found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2211,7 +2074,7 @@ export interface operations {
             };
         };
     };
-    list_link_submissions: {
+    list_link_assessments: {
         parameters: {
             query?: {
                 status?: string;
@@ -2226,13 +2089,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Paginated submissions for a center-owned link */
+            /** @description Paginated assessments for a center-owned link */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SubmissionPage"];
+                    "application/json": components["schemas"]["AssessmentPage"];
                 };
             };
             /** @description Center authentication required */
@@ -2246,6 +2109,240 @@ export interface operations {
             };
             /** @description Link not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_linked_assessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Center-owned linked assessment and reading summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedAssessmentDetailResponse"];
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_linked_assessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assessment and derived report deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_center_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assessment report snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentReport"];
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Report is not ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_center_report_pdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Printable assessment report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Report is not ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description PDF renderer is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    retry_linked_assessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Failed assessment queued again */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assessment"];
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment is not failed */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2447,245 +2544,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PassageChoice"][];
+                    "application/json": components["schemas"]["PassageChoicePage"];
                 };
             };
             /** @description Center authentication required */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    get_submission: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Center-owned submission and reading summary */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubmissionDetailResponse"];
-                };
-            };
-            /** @description Center authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    delete_submission: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Submission and derived report deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Center authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    get_center_report: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Assessment report snapshot */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssessmentReport"];
-                };
-            };
-            /** @description Center authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Report is not ready */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    get_center_report_pdf: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Printable assessment report */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/pdf": unknown;
-                };
-            };
-            /** @description Center authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Report is not ready */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description PDF renderer is unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    retry_submission: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Failed submission queued again */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FinalizeResponse"];
-                };
-            };
-            /** @description Center authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Submission is not failed */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };

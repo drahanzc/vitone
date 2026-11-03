@@ -479,6 +479,13 @@ export function AdminDashboardPage() {
   const totalSubmissions = data.links.reduce((sum, link) => sum + link.submission_count, 0)
   const processingCount = data.links.reduce((sum, link) => sum + link.in_progress_count, 0)
   const completedCount = data.links.reduce((sum, link) => sum + link.completed_count, 0)
+  const previewLink = previewPassage
+    ? data.links.find(link =>
+        link.passage_id === previewPassage.passage_id
+        && link.passage_version === previewPassage.version
+        && isShareableLink(link, now),
+      ) ?? null
+    : null
 
   function handleCreated(link: AssessmentLink) {
     // Update the visible row immediately; the refresh also brings in fresh counts.
@@ -528,7 +535,7 @@ export function AdminDashboardPage() {
                         <div className="admin-passage-stats" aria-label="Assessment details">
                           <span className="admin-passage-stat"><Icon name="users" /><span>{passage.required_readings ?? 2} reading {passage.required_readings === 1 ? 'attempt' : 'attempts'}</span></span>
                           <span className="admin-passage-stat-divider" aria-hidden="true" />
-                          <span className="admin-passage-stat"><Icon name="clock" /><span>{estimatedReadingTime(passage.word_count)} per reading</span></span>
+                          <span className="admin-passage-stat"><Icon name="clock" /><span>{estimatedReadingTime(passage.word_count)}</span></span>
                         </div>
                       </div>
                       {existingLink ? (
@@ -583,7 +590,19 @@ export function AdminDashboardPage() {
           onCreated={handleCreated}
         />
       ) : null}
-      {previewPassage ? <PassagePreviewDialog passage={previewPassage} onClose={() => setPreviewPassage(null)} /> : null}
+      {previewPassage ? (
+        <PassagePreviewDialog
+          passage={previewPassage}
+          existingLink={previewLink}
+          copied={previewLink ? copiedLinkId === previewLink.id : false}
+          onCopyLink={copyLink}
+          onCreateLink={passage => {
+            setPreviewPassage(null)
+            setSelectedPassage(passage)
+          }}
+          onClose={() => setPreviewPassage(null)}
+        />
+      ) : null}
     </main>
   )
 }
@@ -597,7 +616,21 @@ function estimatedReadingTime(wordCount: number): string {
   return `~${fastestMinutes}–${slowestMinutes} minutes`
 }
 
-function PassagePreviewDialog({ passage, onClose }: { passage: PassageChoice; onClose: () => void }) {
+function PassagePreviewDialog({
+  passage,
+  existingLink,
+  copied,
+  onCopyLink,
+  onCreateLink,
+  onClose,
+}: {
+  passage: PassageChoice
+  existingLink: AssessmentLink | null
+  copied: boolean
+  onCopyLink: (link: AssessmentLink) => Promise<void>
+  onCreateLink: (passage: PassageChoice) => void
+  onClose: () => void
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -619,22 +652,60 @@ function PassagePreviewDialog({ passage, onClose }: { passage: PassageChoice; on
       ref={dialogRef}
       className="admin-passage-preview-dialog"
       aria-labelledby="passage-preview-title"
+      aria-describedby="passage-preview-summary"
       onCancel={event => { event.preventDefault(); close() }}
       onClick={event => { if (event.target === event.currentTarget) close() }}
     >
-      <section className="admin-passage-preview-content">
-        <header className="admin-passage-preview-heading">
-          <div><span className="admin-eyebrow">ASSESSMENT PREVIEW</span><h2 id="passage-preview-title">{passage.title}</h2></div>
-          <button className="admin-dialog-close" type="button" aria-label="Close passage preview" onClick={close}><Icon name="close" /></button>
-        </header>
-        <div className="admin-passage-preview-scroll">
-          <p className="admin-passage-preview-context">{passage.context?.trim() || 'No additional context provided.'}</p>
-          <section className="admin-passage-preview-text-section" aria-labelledby="passage-preview-text-label">
-            <h3 id="passage-preview-text-label">Passage text</h3>
-            <p className="admin-passage-preview-text">{passage.reference_text}</p>
-          </section>
-        </div>
-      </section>
+      <button
+        className="admin-passage-preview-close"
+        type="button"
+        aria-label="Close passage preview"
+        onClick={close}
+        autoFocus
+      >
+        <img src="/assets/admin-preview-icons/close.svg" alt="" />
+      </button>
+      <div className="admin-passage-preview-content">
+        <section className="admin-passage-preview-summary" aria-label="Passage summary">
+          <img className="admin-passage-preview-art" src="/assets/new-apartment.png" alt="" />
+          <div className="admin-passage-preview-copy">
+            <h2 id="passage-preview-title">{passage.title}</h2>
+            <p id="passage-preview-summary" className="admin-passage-preview-description">
+              {passage.context?.trim() || passageDescription(passage.context, passage.reference_text)}
+            </p>
+            <div className="admin-passage-preview-details" aria-label="Assessment details">
+              <span className="admin-passage-preview-detail">
+                <img src="/assets/admin-preview-icons/readers.svg" alt="" />
+                <span>{passage.required_readings} reading {passage.required_readings === 1 ? 'attempt' : 'attempts'}</span>
+              </span>
+              <span className="admin-passage-preview-divider" aria-hidden="true" />
+              <span className="admin-passage-preview-detail">
+                <img src="/assets/admin-preview-icons/clock.svg" alt="" />
+                <span>{estimatedReadingTime(passage.word_count)}</span>
+              </span>
+            </div>
+          </div>
+          <button
+            className="admin-passage-preview-action"
+            type="button"
+            onClick={() => existingLink ? void onCopyLink(existingLink) : onCreateLink(passage)}
+          >
+            <span aria-live="polite">{existingLink ? copied ? 'Copied' : 'Copy Link' : 'Create Link'}</span>
+            <img src="/assets/admin-preview-icons/link.svg" alt="" />
+          </button>
+        </section>
+        <section className="admin-passage-preview-reading" aria-labelledby="passage-preview-reading-title">
+          <div className="admin-passage-preview-badge">
+            <img src="/assets/admin-preview-icons/book.svg" alt="" />
+            <h3 id="passage-preview-reading-title">Reading Passage</h3>
+          </div>
+          <div className="admin-passage-preview-text" role="region" aria-label="Passage text" tabIndex={0}>
+            {passage.reference_text.split(/\n\s*\n/).map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
+      </div>
     </dialog>
   )
 }

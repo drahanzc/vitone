@@ -30,6 +30,16 @@ type ReportTab = 'overview' | 'sounds' | 'intonation' | 'stress'
 const TOTAL_READINGS = 2
 const BRAND_MARK = '/assets/vitone-mark.png'
 const PASSAGE_ART = '/assets/new-apartment.png'
+const SCROLL_THUMB_HEIGHT = 32
+
+export function shouldAdvanceToSecondReadingOnScroll(
+  scrollIntent: boolean,
+  readingNumber: number,
+  firstReadingBottom: number,
+  listTop: number,
+): boolean {
+  return scrollIntent && readingNumber === 1 && firstReadingBottom <= listTop + 12
+}
 
 function formatTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0')
@@ -59,11 +69,12 @@ function Brand() {
   )
 }
 
-function StudentHeader({ activeStep }: {
+function StudentHeader({ activeStep, showInfo = false }: {
   activeStep: 1 | 2 | 3
+  showInfo?: boolean
 }) {
   return (
-    <header className="student-header">
+    <header className={`student-header ${showInfo ? 'student-header-assessment' : ''}`}>
       <Brand />
       <nav className="stepper" aria-label="Assessment progress">
         {(['Overview', 'Record', 'Submit'] as const).map((label, index) => {
@@ -76,6 +87,7 @@ function StudentHeader({ activeStep }: {
           )
         })}
       </nav>
+      {/* {showInfo ? <span className="header-note" title="Read the passage twice in one recording before submitting."><img src="/assets/student-assessment-info.svg" alt="Assessment information" /></span> : null} */}
     </header>
   )
 }
@@ -144,26 +156,45 @@ function passageSentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+/).map(sentence => sentence.trim()).filter(Boolean)
 }
 
-function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPreview, onBack, onAdvanceToSecond, onCompleteSecond }: {
+function PassagePanel({ link, view, readingNumber, secondReadingComplete, canProgressReadings, onPreview, onBack, onBackToOverview, onAdvanceToSecond, onCompleteSecond }: {
   link: PublicLink
   view: FlowView
   readingNumber: number
   secondReadingComplete: boolean
+  canProgressReadings: boolean
   onPreview: () => void
   onBack: () => void
+  onBackToOverview: () => void
   onAdvanceToSecond: () => void
   onCompleteSecond: () => void
 }) {
+  const readingCardRef = useRef<HTMLElement | null>(null)
   const passageListRef = useRef<HTMLDivElement | null>(null)
   const firstReadingRef = useRef<HTMLElement | null>(null)
   const secondReadingRef = useRef<HTMLElement | null>(null)
   const scrollIntentRef = useRef(false)
   const touchStartYRef = useRef<number | null>(null)
+  const [scrollThumbOffset, setScrollThumbOffset] = useState(0)
+  const [scrollThumbTop, setScrollThumbTop] = useState(0)
+  const [showScrollThumb, setShowScrollThumb] = useState(false)
   const context = link.passage.context?.trim()
+  const sentences = useMemo(() => passageSentences(link.passage.text), [link.passage.text])
+
+  const updateScrollThumb = useCallback(() => {
+    const list = passageListRef.current
+    const card = readingCardRef.current
+    if (!list || !card) return
+    const maxScroll = list.scrollHeight - list.clientHeight
+    const thumbTravel = Math.max(0, list.clientHeight - SCROLL_THUMB_HEIGHT)
+    const trackTop = list.getBoundingClientRect().top - card.getBoundingClientRect().top - card.clientTop
+    setShowScrollThumb(maxScroll > 0)
+    setScrollThumbTop(trackTop)
+    setScrollThumbOffset(maxScroll > 0 ? list.scrollTop / maxScroll * thumbTravel : 0)
+  }, [])
 
   function advanceToSecondReading() {
     scrollIntentRef.current = false
-    if (readingNumber === 2) return
+    if (!canProgressReadings || readingNumber === 2) return
     onAdvanceToSecond()
     window.requestAnimationFrame(() => {
       if (!passageListRef.current || !secondReadingRef.current) return
@@ -179,16 +210,31 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPrev
   function handlePassageScroll() {
     const list = passageListRef.current
     const firstReading = firstReadingRef.current
-    if (!scrollIntentRef.current || readingNumber !== 1 || !list || !firstReading) return
-    scrollIntentRef.current = false
+    updateScrollThumb()
+    if (!canProgressReadings || !scrollIntentRef.current || readingNumber !== 1 || !list || !firstReading) return
     const listTop = list.getBoundingClientRect().top
     const firstReadingBottom = firstReading.getBoundingClientRect().bottom
-    if (firstReadingBottom <= listTop + 12) advanceToSecondReading()
+    if (shouldAdvanceToSecondReadingOnScroll(scrollIntentRef.current, readingNumber, firstReadingBottom, listTop)) {
+      advanceToSecondReading()
+    }
   }
 
   useEffect(() => {
-    if (readingNumber === 1) passageListRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    if (readingNumber === 1) {
+      scrollIntentRef.current = false
+      passageListRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }, [readingNumber])
+
+  useEffect(() => {
+    if (view !== 'record' && view !== 'review') return
+    const frameId = window.requestAnimationFrame(updateScrollThumb)
+    window.addEventListener('resize', updateScrollThumb)
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.removeEventListener('resize', updateScrollThumb)
+    }
+  }, [updateScrollThumb, view])
 
   if (view === 'overview') {
     return (
@@ -210,7 +256,8 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPrev
     return (
       <section className="preview-card" aria-labelledby="preview-title">
         <div className="preview-card-top">
-          <button className="back-link" type="button" onClick={onBack}><span aria-hidden="true">←</span>Back</button>
+          <button className="back-link" type="button" onClick={onBack}>
+            <span aria-hidden="true" className='mr-1'>←</span>Back</button>
           <span className="context-pill">Preview Passage</span>
         </div>
         <div className="preview-copy">
@@ -222,48 +269,63 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPrev
   }
 
   return (
-    <section className="reading-card" aria-label="Reading passage">
+    <section className="reading-card" ref={readingCardRef} aria-labelledby="reading-passage-title">
       <div className="reading-card-top">
-        <span className="context-pill">Reading Passage</span>
+        {view === 'record' ? <button className="back-link reading-back-link" type="button" onClick={onBackToOverview}><span aria-hidden="true" className="mr-1">←</span>Back</button> : null}
+        <h1 className="context-pill reading-card-title" id="reading-passage-title">Reading Passage</h1>
       </div>
       <div
         className="sentence-list"
         ref={passageListRef}
+        role="region"
+        aria-label="Passage text. Scroll to read both readings."
         tabIndex={0}
         onScroll={handlePassageScroll}
-        onWheel={event => { if (event.deltaY > 0) scrollIntentRef.current = true }}
+        onWheel={event => {
+          if (event.deltaY > 0) scrollIntentRef.current = true
+          else if (event.deltaY < 0) scrollIntentRef.current = false
+        }}
         onTouchStart={event => { touchStartYRef.current = event.touches[0]?.clientY ?? null }}
         onTouchMove={event => {
           const currentY = event.touches[0]?.clientY
           if (currentY !== undefined && touchStartYRef.current !== null && currentY < touchStartYRef.current) scrollIntentRef.current = true
+          else if (currentY !== undefined && touchStartYRef.current !== null && currentY > touchStartYRef.current) scrollIntentRef.current = false
         }}
-        onKeyDown={event => { if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) scrollIntentRef.current = true }}
+        onKeyDown={event => {
+          if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) scrollIntentRef.current = true
+          else if (['ArrowUp', 'PageUp', 'Home'].includes(event.key)) scrollIntentRef.current = false
+        }}
       >
         {Array.from({ length: TOTAL_READINGS }, (_, index) => index + 1).map(copy => (
-          <section className="reading-copy" key={copy} ref={copy === 1 ? firstReadingRef : secondReadingRef}>
-            <h2 className="visually-hidden">Reading {copy}</h2>
-            {passageSentences(link.passage.text).map((sentence, index) => (
-              <div className={`sentence-row ${copy === readingNumber && index === 0 ? 'sentence-current' : ''}`} key={`${copy}-${index}-${sentence.slice(0, 24)}`}>
+          <section className="reading-copy" key={copy} ref={copy === 1 ? firstReadingRef : secondReadingRef} aria-labelledby={`reading-${copy}-title`}>
+            <h2 className="visually-hidden" id={`reading-${copy}-title`}>Reading {copy}</h2>
+            {sentences.map((sentence, index) => (
+              <div
+                className="sentence-row"
+                key={`${copy}-${index}`}
+              >
                 <span className="sentence-number">{String(index + 1).padStart(2, '0')}</span>
                 <p>{sentence}</p>
               </div>
             ))}
             {copy === 1 ? (
-              <button className="progression-button" type="button" onClick={advanceToSecondReading}>
-                I’ve finished the first reading <span aria-hidden="true">↓</span>
+              <button className="progression-button" type="button" onClick={advanceToSecondReading} disabled={!canProgressReadings || readingNumber === 2}>
+                {readingNumber === 2 ? 'First reading complete' : 'I’ve finished the first reading'}
+                {readingNumber === 1 ? <span aria-hidden="true">↓</span> : null}
               </button>
             ) : (
               <div className="reading-completion">
                 {secondReadingComplete ? <span role="status">Both readings complete. You can finish your recording.</span> : null}
-                <button className="progression-button" type="button" onClick={onCompleteSecond} disabled={secondReadingComplete}>
-                  {secondReadingComplete ? 'Second reading complete' : 'I’ve finished the second reading'}
-                  {!secondReadingComplete ? <span aria-hidden="true">✓</span> : null}
+                <button className="progression-button" type="button" onClick={onCompleteSecond} disabled={!canProgressReadings || readingNumber !== 2 || secondReadingComplete}>
+                  {secondReadingComplete ? 'Second reading complete' : readingNumber === 2 ? 'I’ve finished the second reading' : 'Complete the first reading to continue'}
+                  {readingNumber === 2 && !secondReadingComplete ? <span aria-hidden="true">✓</span> : null}
                 </button>
               </div>
             )}
           </section>
         ))}
       </div>
+      {showScrollThumb ? <span className="reading-scrollbar-thumb" aria-hidden="true" style={{ top: `${scrollThumbTop}px`, transform: `translateY(${scrollThumbOffset}px)` }} /> : null}
     </section>
   )
 }
@@ -273,7 +335,7 @@ function MicOrb({ recording = false }: { recording?: boolean }) {
     <div className={`mic-orb ${recording ? 'mic-orb-recording' : ''}`} aria-hidden="true">
       {recording
         ? <div className="listening-dots"><i /><i /><i /><i /><i /></div>
-        : <img src="/assets/4003-3526.svg" alt="" />}
+        : <img src="/assets/student-assessment-microphone.svg" alt="" />}
     </div>
   )
 }
@@ -281,7 +343,7 @@ function MicOrb({ recording = false }: { recording?: boolean }) {
 function AdviceCards() {
   return (
     <div className="advice-cards">
-      <div className="advice-card"><span className="advice-icon"><img src="/assets/quiet.svg" alt="" /></span><span>Quiet place with<br />minimal noise</span></div>
+      <div className="advice-card"><span className="advice-icon"><img src="/assets/student-assessment-quiet.svg" alt="" /></span><span>Quiet place with<br />minimal noise</span></div>
       <div className="advice-card"><span className="advice-icon"><img src="/assets/headphones.svg" alt="" /></span><span>Speak clearly at a<br />natural pace</span></div>
       <div className="advice-card"><span className="advice-icon"><img src="/assets/play.svg" alt="" /></span><span>Pause and resume<br />whenever you need</span></div>
     </div>
@@ -291,9 +353,9 @@ function AdviceCards() {
 function Waveform({ progress = 0 }: { progress?: number }) {
   return (
     <div className="waveform" aria-hidden="true">
-      {Array.from({ length: 42 }, (_, index) => {
-        const height = 8 + ((index * 17 + index * index * 3) % 26)
-        return <span className={index / 42 <= progress ? 'wave-played' : ''} style={{ height }} key={index} />
+      {Array.from({ length: 68 }, (_, index) => {
+        const height = 3 + ((index * 17 + index * index * 3) % 34)
+        return <span className={index / 68 < progress ? 'wave-played' : ''} style={{ height }} key={index} />
       })}
     </div>
   )
@@ -301,6 +363,7 @@ function Waveform({ progress = 0 }: { progress?: number }) {
 
 function StudioPanel({
   view,
+  recordingStarting,
   recordingState,
   elapsed,
   duration,
@@ -308,6 +371,7 @@ function StudioPanel({
   busy,
   audioUrl,
   secondReadingComplete,
+  onPrepare,
   onBegin,
   onPause,
   onResume,
@@ -316,6 +380,7 @@ function StudioPanel({
   onSubmit,
 }: {
   view: FlowView
+  recordingStarting: boolean
   recordingState: RecordingState
   elapsed: number
   duration: number
@@ -323,6 +388,7 @@ function StudioPanel({
   busy: boolean
   audioUrl: string | null
   secondReadingComplete: boolean
+  onPrepare: () => void
   onBegin: () => void
   onPause: () => void
   onResume: () => void
@@ -351,7 +417,7 @@ function StudioPanel({
   }
 
   return (
-    <aside className={`studio-panel ${view === 'review' ? 'studio-panel-review' : ''} ${view === 'record' && recordingState !== 'idle' ? 'studio-panel-capture' : ''}`} aria-live="polite">
+    <aside className={`studio-panel ${view === 'review' ? 'studio-panel-review' : ''} ${view === 'record' ? 'studio-panel-capture' : ''}`} aria-live="polite">
       {view === 'submitted' ? (
         <div className="studio-content submitted-content">
           <Mascot />
@@ -360,9 +426,10 @@ function StudioPanel({
         </div>
       ) : view === 'review' ? (
         <div className="studio-content review-content">
-          <h2>Review your Recording</h2>
-          <p>Listen to your recording before submitting.</p>
+          <div className="review-heading"><h2>Review your Recording</h2>
+          <p>Listen to your recording before submitting.</p></div>
           {audioUrl ? <audio ref={audioRef} src={audioUrl} onTimeUpdate={event => setPlayTime(event.currentTarget.currentTime)} onEnded={() => setPlaying(false)} /> : null}
+          <div className="review-player-actions">
           <div className="audio-review-row">
             <button className="audio-play-button" aria-label={playing ? 'Pause recording' : 'Play recording'} onClick={toggleAudio}>
               <img src={playing ? '/assets/pause.svg' : '/assets/play.svg'} alt="" />
@@ -373,41 +440,47 @@ function StudioPanel({
           <div className="review-actions">
             <button className="secondary-button" onClick={onRestart} disabled={busy}>Record again <img src="/assets/replay-muted.svg" alt="" /></button>
             <button className="primary-button" onClick={onSubmit} disabled={busy}>
-              {busy ? 'Submitting…' : 'Submit recording'} <span aria-hidden="true">➤</span>
+              {busy ? 'Submitting…' : 'Submit Recording'} <img src="/assets/520-4772.svg" alt="" />
             </button>
           </div>
+          </div>
           {error ? <p className="inline-error" role="alert">{error}</p> : null}
-          <div className="privacy-note"><img src="/assets/lock.svg" alt="" />Your recording will be securely submitted for assessment.</div>
+          <div className="privacy-note"><img src="/assets/lock.svg" alt="" /><span>Your recording will be securely submitted for assessment. You won't be able to edit it after submitting.</span></div>
         </div>
       ) : (
-        <div className={`studio-content ${recordingState === 'idle' ? 'studio-content-ready' : 'studio-content-capture'}`}>
-          {recordingState === 'idle' ? (
+        <div className={`studio-content ${recordingState === 'idle' && view !== 'record' ? 'studio-content-ready' : 'studio-content-capture'}`}>
+          {recordingState === 'idle' && view !== 'record' ? (
             <>
-              <MicOrb />
+              <div className="mic-orb-slot"><MicOrb /></div>
               <div className="studio-ready-copy">
                 <h2>Ready to Record?</h2>
-                <p className="studio-instructions">Please read aloud clearly.<br />You will be asked to read the passage twice.</p>
-                <p className="studio-note">You do not need to understand every single word; simply grasp the general context to make your reading sound more natural. Feel free to pause the recording between the first and second readings if you need a short break.</p>
-                <button className="primary-button start-button" onClick={onBegin}>Start <span aria-hidden="true">▶</span></button>
+                <p className="studio-instructions text-justify">Please read aloud clearly. You will be asked to read the passage twice. You do not need to understand every single word; simply grasp the general context to make your reading sound more natural. Feel free to pause the recording between the first and second readings if you need a short break.
+                </p>
+                <button className="primary-button start-button" type="button" onClick={onPrepare}>Start <span aria-hidden="true">▶</span></button>
               </div>
               {error ? <p className="inline-error" role="alert">{error}</p> : null}
               <AdviceCards />
             </>
           ) : (
             <>
-              {recordingState === 'recording' ? <span className="recording-pill"><i />Recording…</span> : <span className="paused-pill">Paused</span>}
-              <MicOrb recording={recordingState === 'recording'} />
-              <div className="recording-time">{formatTime(elapsed)}</div>
+              <div className="mic-orb-slot"><MicOrb recording={recordingState === 'recording'} /></div>
+              {recordingState === 'recording'
+                ? <span className="recording-pill" role="status"><img src="/assets/student-recording/status.svg" alt="" />Recording...</span>
+                : recordingState === 'paused'
+                  ? <span className="paused-pill" role="status">Paused</span>
+                  : <span className="recording-ready-pill" role="status">{recordingStarting ? 'Starting…' : 'Ready'}</span>}
+              <div className="recording-time">{formatTime(recordingState === 'idle' ? 0 : elapsed)}</div>
               <div className="recording-control-group">
                 <div className="recording-actions">
-                  <button className="round-action round-restart" onClick={onRestart} aria-label="Start over"><img src="/assets/replay.svg" alt="" /></button>
-                  {recordingState === 'recording'
-                    ? <button className="round-action round-pause" onClick={onPause} aria-label="Pause recording"><img src="/assets/pause.svg" alt="" /></button>
-                    : <button className="round-action round-pause" onClick={onResume} aria-label="Resume recording"><img src="/assets/play.svg" alt="" /></button>}
-                  <button className="round-action round-finish" onClick={onFinish} aria-label="Finish recording" disabled={!secondReadingComplete}><img src="/assets/stop.svg" alt="" /></button>
+                  <button className="round-action round-restart" type="button" onClick={onRestart} aria-label="Start over" disabled={recordingState === 'idle'}><img src="/assets/student-recording/restart.svg" alt="" /></button>
+                  {recordingState === 'idle'
+                    ? <button className="round-action round-pause" type="button" onClick={onBegin} aria-label="Start recording" disabled={recordingStarting}><img src="/assets/play.svg" alt="" /></button>
+                    : recordingState === 'recording'
+                      ? <button className="round-action round-pause" type="button" onClick={onPause} aria-label="Pause recording"><img src="/assets/student-recording/pause.svg" alt="" /></button>
+                      : <button className="round-action round-pause" type="button" onClick={onResume} aria-label="Resume recording"><img src="/assets/play.svg" alt="" /></button>}
+                  <button className="round-action round-finish" type="button" onClick={onFinish} aria-label="Finish recording" disabled={recordingState === 'idle' || !secondReadingComplete}><img src="/assets/student-recording/finish.svg" alt="" /></button>
                 </div>
-                <div className="recording-labels"><span>Start over</span><span>{recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>Finish</span></div>
-                {!secondReadingComplete ? <p className="inline-note">Finish both readings in the passage panel to enable Finish.</p> : null}
+                <div className="recording-labels"><span>Start over</span><span>{recordingState === 'idle' ? recordingStarting ? 'Starting…' : 'Start' : recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>Finish</span></div>
               </div>
               {error ? <p className="inline-error" role="alert">{error}</p> : null}
             </>
@@ -464,8 +537,7 @@ function SubmissionModal({
       <section className="submission-modal" role="dialog" aria-modal="true" aria-labelledby="submission-modal-title">
         <button className="modal-close" onClick={onClose} disabled={busy} aria-label="Close">×</button>
         <Mascot />
-        <h2 id="submission-modal-title">Submit your two readings?</h2>
-        <p className="modal-intro">Both readings and any pauses are together in one recording. Add your details and confirm consent to send it securely.</p>
+        <h2 id="submission-modal-title">Stop recording and submit your assessment?</h2>
         <form onSubmit={submit}>
           <label className="visually-hidden" htmlFor="student-name">Your name</label>
           <input id="student-name" value={name} onChange={event => setName(event.target.value)} placeholder="Enter Your Name *" autoComplete="name" maxLength={80} required disabled={busy} />
@@ -508,7 +580,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   const [busy, setBusy] = useState(false)
   const [readingNumber, setReadingNumber] = useState(1)
   const [secondReadingComplete, setSecondReadingComplete] = useState(false)
-  const [allowEmptyRecordRoute, setAllowEmptyRecordRoute] = useState(false)
   const [recordingStarting, setRecordingStarting] = useState(false)
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [elapsed, setElapsed] = useState(0)
@@ -571,12 +642,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     }
 
     if (step === 'record') {
-      if (recordingState === 'idle' && !clip && !allowEmptyRecordRoute) {
-        setFlowError('Your recording is not available in this session. Start again to continue.')
-        setView('overview')
-        navigate(`${basePath}/overview`, { replace: true })
-        return
-      }
       setView('record')
       return
     }
@@ -593,7 +658,14 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     }
 
     navigate(`${basePath}/overview`, { replace: true })
-  }, [allowEmptyRecordRoute, assessmentToken, basePath, clip, link, loading, location.search, navigate, recordingState, step])
+  }, [assessmentToken, basePath, clip, link, loading, location.search, navigate, step])
+
+  function cancelRecordingStart() {
+    if (!recordingStartingRef.current) return
+    recordingStartRef.current += 1
+    recordingStartingRef.current = false
+    setRecordingStarting(false)
+  }
 
   const discardUnsubmittedRecording = useCallback(() => {
     recordingStartRef.current += 1
@@ -611,10 +683,13 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     chunksRef.current = []
     secondReadingCompleteRef.current = false
     setRecordingState('idle')
+    setReadingNumber(1)
     setClip(null)
     setClipUrl(null)
     setElapsed(0)
     setSecondReadingComplete(false)
+    setClipError('')
+    setFlowError('')
   }, [])
 
   const hasUnsubmittedRecording = recordingState !== 'idle' || (clip !== null && !assessmentToken)
@@ -660,18 +735,16 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   }, [basePath, discardUnsubmittedRecording, hasUnsubmittedRecording, navigate, recordingStarting, recordingState])
 
   function guardAssessmentLink(event: ReactMouseEvent<HTMLDivElement>) {
-    if (recordingStartingRef.current) {
-      recordingStartRef.current += 1
-      recordingStartingRef.current = false
-      setRecordingStarting(false)
-    }
-    if (!hasUnsubmittedRecording || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.defaultPrevented) return
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.defaultPrevented) return
     const target = event.target
     if (!(target instanceof Element)) return
     const anchor = target.closest('a[href]')
     if (!(anchor instanceof HTMLAnchorElement) || (anchor.target && anchor.target !== '_self')) return
 
     const destination = new URL(anchor.href, window.location.origin)
+    const routeChanges = destination.pathname !== location.pathname || destination.search !== location.search || destination.hash !== location.hash
+    if (recordingStartingRef.current && routeChanges) cancelRecordingStart()
+    if (!hasUnsubmittedRecording) return
     const sameAssessment = destination.origin === window.location.origin
       && (destination.pathname === basePath || destination.pathname.startsWith(`${basePath}/`))
     const leavesActiveRecording = recordingState !== 'idle' && destination.pathname !== `${basePath}/record`
@@ -697,6 +770,16 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     navigate(target, { replace })
   }
 
+  function backToOverview() {
+    if (recordingStartingRef.current) {
+      cancelRecordingStart()
+    } else if (hasUnsubmittedRecording) {
+      if (!window.confirm('Leaving now will discard your unsubmitted recording. Do you want to continue?')) return
+      discardUnsubmittedRecording()
+    }
+    navigateToView('overview', true)
+  }
+
   useEffect(() => () => {
     const recorder = recorderRef.current
     if (recorder && recorder.state !== 'inactive') {
@@ -714,6 +797,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   }, [])
 
   async function beginRecording() {
+    if (recordingStartingRef.current || recordingState !== 'idle' || view !== 'record') return
     if (clip && !window.confirm('Starting a new recording will replace your current recording. Continue?')) return
     const requestId = ++recordingStartRef.current
     recordingStartingRef.current = true
@@ -727,7 +811,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     setReportUrl('')
     setAssessmentStatus('')
     setReportSession(null)
-    setAllowEmptyRecordRoute(false)
     setReadingNumber(1)
     setSecondReadingComplete(false)
     secondReadingCompleteRef.current = false
@@ -780,7 +863,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
       recorderRef.current = recorder
       recorder.start(1000)
       setRecordingState('recording')
-      setAllowEmptyRecordRoute(false)
       navigateToView('record')
     } catch {
       grantedStream?.getTracks().forEach(track => track.stop())
@@ -842,7 +924,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     setReportUrl('')
     setAssessmentStatus('')
     setReportSession(null)
-    setAllowEmptyRecordRoute(true)
     navigateToView('record')
   }
 
@@ -938,7 +1019,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   return (
     <div className="student-app" onClickCapture={guardAssessmentLink}>
-      <StudentHeader activeStep={activeStep} />
+      <StudentHeader activeStep={activeStep} showInfo />
       <main className={`assessment-main ${showReading ? 'reading-stage' : ''}`}>
         <div className="assessment-grid">
           <PassagePanel
@@ -946,13 +1027,16 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
             view={view}
             readingNumber={readingNumber}
             secondReadingComplete={secondReadingComplete}
+            canProgressReadings={view === 'record' && recordingState !== 'idle'}
             onPreview={() => navigateToView('preview')}
             onBack={() => navigateToView('overview', true)}
+            onBackToOverview={backToOverview}
             onAdvanceToSecond={() => setReadingNumber(2)}
             onCompleteSecond={() => { secondReadingCompleteRef.current = true; setSecondReadingComplete(true) }}
           />
           <StudioPanel
             view={view}
+            recordingStarting={recordingStarting}
             recordingState={recordingState}
             elapsed={elapsed}
             duration={duration}
@@ -960,6 +1044,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
             busy={busy}
             audioUrl={clipUrl}
             secondReadingComplete={secondReadingComplete}
+            onPrepare={() => navigateToView('record')}
             onBegin={() => { void beginRecording() }}
             onPause={pauseRecording}
             onResume={resumeRecording}
@@ -976,7 +1061,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
             <button className="modal-close" onClick={openReport} aria-label="Close">×</button>
             <Mascot />
             <h2 id="success-title">Submitted!</h2>
-            <p>Your reading is being analyzed. You can return to your report using this link.</p>
             <button className="primary-button" onClick={openReport}>View my report <span aria-hidden="true">→</span></button>
           </section>
         </div>

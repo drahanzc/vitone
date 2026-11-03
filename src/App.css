@@ -987,6 +987,9 @@
   line-height: 1.02;
 }
 
+.home-copy h1 { max-width: none; font-size: clamp(18px, 4.5vw, 56px); }
+.home-heading-nowrap { white-space: nowrap; }
+
 .home-copy > p,
 .message-card > p,
 .waiting-card > p {
@@ -1490,7 +1493,7 @@ input:focus-visible {
   .recording-labels { grid-template-columns: repeat(3, 70px); gap: 15px; }
   .home-main, .message-screen, .loading-screen { min-height: calc(100vh - 70px); padding: 20px 14px; }
   .home-card { min-height: 590px; align-items: flex-start; padding: 42px 24px; border-radius: 30px; }
-  .home-copy h1 { font-size: clamp(38px, 12vw, 54px); }
+  .home-copy h1 { font-size: clamp(18px, 5.5vw, 42px); }
   .home-art { right: -8%; bottom: -8%; width: 65%; min-width: 240px; }
   .link-entry { margin-top: 30px; }
   .link-entry-row { flex-direction: column; }

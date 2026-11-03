@@ -127,7 +127,6 @@
 
 .assessment-grid {
   display: grid;
-  min-height: min(720px, calc(100vh - 100px));
   grid-template-columns: minmax(0, 0.97fr) minmax(0, 1fr);
   gap: 20px;
   flex: 1;
@@ -429,6 +428,11 @@
   font-size: 15px;
 }
 
+.sentence-number.active {
+  color: var(--blue);
+  background: none;
+}
+
 .studio-panel {
   position: relative;
   display: flex;
@@ -726,7 +730,7 @@
 }
 
 .recording-control-group {
-  flex:1;
+ flex:1;
   display: flex;
   flex-direction: column;
   align-items: center;

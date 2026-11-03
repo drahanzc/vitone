@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import './App.css'
+import './speech-recognition.css'
+import { useSpeechRecognitionPassage } from './speech-recognition'
 import {
   AdminAssessmentsPage,
   AdminAuthProvider,
@@ -10,9 +12,14 @@ import {
 } from './admin/AdminApp'
 import {
   ApiError,
+  AudioCompositionError,
+  combineReadingsToWav,
   getPublicLink,
   getStudentReport,
   getAssessmentStatus,
+  maxCombinedSpeechDurationSeconds,
+  MIN_AUDIO_SECONDS_PER_READING,
+  READING_SEPARATION_SECONDS,
   readReportSession,
   saveReportSession,
   studentReportPdfUrl,
@@ -27,19 +34,9 @@ type FlowView = 'overview' | 'preview' | 'record' | 'review' | 'submitted'
 type RecordingState = 'idle' | 'recording' | 'paused'
 type ReportTab = 'overview' | 'sounds' | 'intonation' | 'stress'
 
-const TOTAL_READINGS = 2
 const BRAND_MARK = '/assets/vitone-mark.png'
 const PASSAGE_ART = '/assets/new-apartment.png'
 const SCROLL_THUMB_HEIGHT = 32
-
-export function shouldAdvanceToSecondReadingOnScroll(
-  scrollIntent: boolean,
-  readingNumber: number,
-  firstReadingBottom: number,
-  listTop: number,
-): boolean {
-  return scrollIntent && readingNumber === 1 && firstReadingBottom <= listTop + 12
-}
 
 function formatTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0')
@@ -152,33 +149,49 @@ function HomePage() {
   )
 }
 
-function passageSentences(text: string): string[] {
-  return text.split(/(?<=[.!?])\s+/).map(sentence => sentence.trim()).filter(Boolean)
+function partProgressWordIndices(parts: readonly { wordIndex: number | null }[]): (number | null)[] {
+  const indices = new Array<number | null>(parts.length).fill(null)
+  let nextWordIndex: number | null = null
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const wordIndex = parts[index].wordIndex
+    if (wordIndex !== null) nextWordIndex = wordIndex
+    indices[index] = nextWordIndex
+  }
+
+  let previousWordIndex: number | null = null
+  for (let index = 0; index < parts.length; index += 1) {
+    const wordIndex = parts[index].wordIndex
+    if (wordIndex !== null) previousWordIndex = wordIndex
+    else if (indices[index] === null) indices[index] = previousWordIndex
+  }
+
+  return indices
 }
 
-function PassagePanel({ link, view, readingNumber, secondReadingComplete, canProgressReadings, onPreview, onBack, onBackToOverview, onAdvanceToSecond, onCompleteSecond }: {
+function PassagePanel({ link, view, readingNumber, secondReadingComplete, recordingState, captureId, onPreview, onBack, onBackToOverview }: {
   link: PublicLink
   view: FlowView
   readingNumber: number
   secondReadingComplete: boolean
-  canProgressReadings: boolean
+  recordingState: RecordingState
+  captureId: number
   onPreview: () => void
   onBack: () => void
   onBackToOverview: () => void
-  onAdvanceToSecond: () => void
-  onCompleteSecond: () => void
 }) {
   const readingCardRef = useRef<HTMLElement | null>(null)
   const passageListRef = useRef<HTMLDivElement | null>(null)
-  const firstReadingRef = useRef<HTMLElement | null>(null)
-  const secondReadingRef = useRef<HTMLElement | null>(null)
-  const scrollIntentRef = useRef(false)
-  const touchStartYRef = useRef<number | null>(null)
+  const activeSentenceRef = useRef<HTMLDivElement | null>(null)
   const [scrollThumbOffset, setScrollThumbOffset] = useState(0)
   const [scrollThumbTop, setScrollThumbTop] = useState(0)
   const [showScrollThumb, setShowScrollThumb] = useState(false)
   const context = link.passage.context?.trim()
-  const sentences = useMemo(() => passageSentences(link.passage.text), [link.passage.text])
+  const { sentences, activeWordIndex, provisionalWordIndex, activeSentenceIndex, status, message } = useSpeechRecognitionPassage({
+    text: link.passage.text,
+    active: view === 'record' && recordingState === 'recording',
+    readingNumber,
+    captureId,
+  })
 
   const updateScrollThumb = useCallback(() => {
     const list = passageListRef.current
@@ -192,39 +205,24 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, canPro
     setScrollThumbOffset(maxScroll > 0 ? list.scrollTop / maxScroll * thumbTravel : 0)
   }, [])
 
-  function advanceToSecondReading() {
-    scrollIntentRef.current = false
-    if (!canProgressReadings || readingNumber === 2) return
-    onAdvanceToSecond()
-    window.requestAnimationFrame(() => {
-      if (!passageListRef.current || !secondReadingRef.current) return
-      const listTop = passageListRef.current.getBoundingClientRect().top
-      const readingTop = secondReadingRef.current.getBoundingClientRect().top
-      passageListRef.current.scrollTo({
-        top: passageListRef.current.scrollTop + readingTop - listTop,
-        behavior: 'smooth',
-      })
-    })
-  }
-
   function handlePassageScroll() {
-    const list = passageListRef.current
-    const firstReading = firstReadingRef.current
     updateScrollThumb()
-    if (!canProgressReadings || !scrollIntentRef.current || readingNumber !== 1 || !list || !firstReading) return
-    const listTop = list.getBoundingClientRect().top
-    const firstReadingBottom = firstReading.getBoundingClientRect().bottom
-    if (shouldAdvanceToSecondReadingOnScroll(scrollIntentRef.current, readingNumber, firstReadingBottom, listTop)) {
-      advanceToSecondReading()
-    }
   }
 
   useEffect(() => {
-    if (readingNumber === 1) {
-      scrollIntentRef.current = false
-      passageListRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+    passageListRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [readingNumber])
+
+  useEffect(() => {
+    const list = passageListRef.current
+    const sentence = activeSentenceRef.current
+    if (view !== 'record' || activeSentenceIndex === null || !list || !sentence) return
+    const listBounds = list.getBoundingClientRect()
+    const sentenceBounds = sentence.getBoundingClientRect()
+    if (sentenceBounds.top < listBounds.top || sentenceBounds.bottom > listBounds.bottom) {
+      list.scrollTo({ top: list.scrollTop + sentenceBounds.top - listBounds.top - 24, behavior: 'smooth' })
+    }
+  }, [activeSentenceIndex, view])
 
   useEffect(() => {
     if (view !== 'record' && view !== 'review') return
@@ -278,52 +276,36 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, canPro
         className="sentence-list"
         ref={passageListRef}
         role="region"
-        aria-label="Passage text. Scroll to read both readings."
+        aria-label={`Passage text for Reading ${readingNumber} of 2`}
         tabIndex={0}
         onScroll={handlePassageScroll}
-        onWheel={event => {
-          if (event.deltaY > 0) scrollIntentRef.current = true
-          else if (event.deltaY < 0) scrollIntentRef.current = false
-        }}
-        onTouchStart={event => { touchStartYRef.current = event.touches[0]?.clientY ?? null }}
-        onTouchMove={event => {
-          const currentY = event.touches[0]?.clientY
-          if (currentY !== undefined && touchStartYRef.current !== null && currentY < touchStartYRef.current) scrollIntentRef.current = true
-          else if (currentY !== undefined && touchStartYRef.current !== null && currentY > touchStartYRef.current) scrollIntentRef.current = false
-        }}
-        onKeyDown={event => {
-          if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) scrollIntentRef.current = true
-          else if (['ArrowUp', 'PageUp', 'Home'].includes(event.key)) scrollIntentRef.current = false
-        }}
       >
-        {Array.from({ length: TOTAL_READINGS }, (_, index) => index + 1).map(copy => (
-          <section className="reading-copy" key={copy} ref={copy === 1 ? firstReadingRef : secondReadingRef} aria-labelledby={`reading-${copy}-title`}>
-            <h2 className="visually-hidden" id={`reading-${copy}-title`}>Reading {copy}</h2>
-            {sentences.map((sentence, index) => (
+        <section className="reading-copy" aria-label={`Reading ${readingNumber} of 2`}>
+          <span className="eyebrow">Reading {readingNumber} of 2</span>
+          {sentences.map((sentence, index) => {
+            const isActiveSentence = activeSentenceIndex === index
+            const partWordIndices = partProgressWordIndices(sentence.parts)
+            const progressWordIndex = provisionalWordIndex ?? activeWordIndex
+            return (
               <div
-                className="sentence-row"
-                key={`${copy}-${index}`}
+                className={`sentence-row ${activeSentenceIndex === null ? '' : isActiveSentence ? 'speech-sentence-active' : 'speech-sentence-dim'}`}
+                key={index}
+                ref={isActiveSentence ? activeSentenceRef : undefined}
               >
-                <span className="sentence-number">{String(index + 1).padStart(2, '0')}</span>
-                <p>{sentence}</p>
+                <span className={`sentence-number ${isActiveSentence ? 'active' : ''}`}>{String(index + 1).padStart(2, '0')}</span>
+                <p>{sentence.parts.map((part, partIndex) => {
+                  const partWordIndex = partWordIndices[partIndex]
+                  const hasBeenRead = isActiveSentence
+                    && progressWordIndex !== null
+                    && partWordIndex !== null
+                    && partWordIndex <= progressWordIndex
+                  return <span key={partIndex} className={`speech-part${isActiveSentence ? hasBeenRead ? ' speech-part-read' : ' speech-part-upcoming' : ''}`}>{part.text}</span>
+                })}</p>
               </div>
-            ))}
-            {copy === 1 ? (
-              <button className="progression-button" type="button" onClick={advanceToSecondReading} disabled={!canProgressReadings || readingNumber === 2}>
-                {readingNumber === 2 ? 'First reading complete' : 'I’ve finished the first reading'}
-                {readingNumber === 1 ? <span aria-hidden="true">↓</span> : null}
-              </button>
-            ) : (
-              <div className="reading-completion">
-                {secondReadingComplete ? <span role="status">Both readings complete. You can finish your recording.</span> : null}
-                <button className="progression-button" type="button" onClick={onCompleteSecond} disabled={!canProgressReadings || readingNumber !== 2 || secondReadingComplete}>
-                  {secondReadingComplete ? 'Second reading complete' : readingNumber === 2 ? 'I’ve finished the second reading' : 'Complete the first reading to continue'}
-                  {readingNumber === 2 && !secondReadingComplete ? <span aria-hidden="true">✓</span> : null}
-                </button>
-              </div>
-            )}
-          </section>
-        ))}
+            )
+          })}
+          {secondReadingComplete ? <div className="reading-completion"><span>Both recordings complete. Review each reading before submitting.</span></div> : null}
+        </section>
       </div>
       {showScrollThumb ? <span className="reading-scrollbar-thumb" aria-hidden="true" style={{ top: `${scrollThumbTop}px`, transform: `translateY(${scrollThumbOffset}px)` }} /> : null}
     </section>
@@ -361,45 +343,17 @@ function Waveform({ progress = 0 }: { progress?: number }) {
   )
 }
 
-function StudioPanel({
-  view,
-  recordingStarting,
-  recordingState,
-  elapsed,
-  duration,
-  error,
-  busy,
-  audioUrl,
-  secondReadingComplete,
-  onPrepare,
-  onBegin,
-  onPause,
-  onResume,
-  onFinish,
-  onRestart,
-  onSubmit,
-}: {
-  view: FlowView
-  recordingStarting: boolean
-  recordingState: RecordingState
-  elapsed: number
-  duration: number
-  error: string
-  busy: boolean
-  audioUrl: string | null
-  secondReadingComplete: boolean
-  onPrepare: () => void
-  onBegin: () => void
-  onPause: () => void
-  onResume: () => void
-  onFinish: () => void
-  onRestart: () => void
-  onSubmit: () => void
-}) {
+type ReadingClip = {
+  blob: Blob
+  url: string
+  durationSeconds: number
+}
+
+function ReadingPlayback({ readingNumber, clip }: { readingNumber: 1 | 2; clip: ReadingClip }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
   const [playTime, setPlayTime] = useState(0)
-  const progress = duration ? Math.min(playTime / duration, 1) : 0
+  const progress = clip.durationSeconds ? Math.min(playTime / clip.durationSeconds, 1) : 0
 
   async function toggleAudio() {
     if (!audioRef.current) return
@@ -417,6 +371,65 @@ function StudioPanel({
   }
 
   return (
+    <section aria-label={`Reading ${readingNumber} playback`}>
+      <h3>Reading {readingNumber} of 2</h3>
+      <audio
+        ref={audioRef}
+        src={clip.url}
+        onTimeUpdate={event => setPlayTime(event.currentTarget.currentTime)}
+        onEnded={() => setPlaying(false)}
+      />
+      <div className="audio-review-row">
+        <button className="audio-play-button" type="button" aria-label={playing ? `Pause Reading ${readingNumber}` : `Play Reading ${readingNumber}`} onClick={() => void toggleAudio()}>
+          <img src={playing ? '/assets/pause.svg' : '/assets/play.svg'} alt="" />
+        </button>
+        <Waveform progress={progress} />
+        <span className="audio-duration">{formatTime(playTime)} / {formatTime(clip.durationSeconds)}</span>
+      </div>
+    </section>
+  )
+}
+
+function StudioPanel({
+  view,
+  recordingStarting,
+  recordingState,
+  elapsed,
+  error,
+  busy,
+  readingNumber,
+  readingClips,
+  combining,
+  combinedReady,
+  onPrepare,
+  onBegin,
+  onPause,
+  onResume,
+  onFinish,
+  onRetryReading,
+  onContinueReading,
+  onSubmit,
+}: {
+  view: FlowView
+  recordingStarting: boolean
+  recordingState: RecordingState
+  elapsed: number
+  error: string
+  busy: boolean
+  readingNumber: 1 | 2
+  readingClips: readonly [ReadingClip | null, ReadingClip | null]
+  combining: boolean
+  combinedReady: boolean
+  onPrepare: () => void
+  onBegin: () => void
+  onPause: () => void
+  onResume: () => void
+  onFinish: () => void
+  onRetryReading: (readingNumber: 1 | 2) => void
+  onContinueReading: () => void
+  onSubmit: () => void
+}) {
+  return (
     <aside className={`studio-panel ${view === 'review' ? 'studio-panel-review' : ''} ${view === 'record' ? 'studio-panel-capture' : ''}`} aria-live="polite">
       {view === 'submitted' ? (
         <div className="studio-content submitted-content">
@@ -426,25 +439,29 @@ function StudioPanel({
         </div>
       ) : view === 'review' ? (
         <div className="studio-content review-content">
-          <div className="review-heading"><h2>Review your Recording</h2>
-          <p>Listen to your recording before submitting.</p></div>
-          {audioUrl ? <audio ref={audioRef} src={audioUrl} onTimeUpdate={event => setPlayTime(event.currentTarget.currentTime)} onEnded={() => setPlaying(false)} /> : null}
+          <div className="review-heading"><h2>{readingClips[1] ? 'Review both readings' : 'Review Reading 1 of 2'}</h2>
+            <p>{readingClips[1] ? 'Listen to each recording before submitting.' : 'Listen to your first reading, then record the second one.'}</p></div>
           <div className="review-player-actions">
-          <div className="audio-review-row">
-            <button className="audio-play-button" aria-label={playing ? 'Pause recording' : 'Play recording'} onClick={toggleAudio}>
-              <img src={playing ? '/assets/pause.svg' : '/assets/play.svg'} alt="" />
-            </button>
-            <Waveform progress={progress} />
-            <span className="audio-duration">{formatTime(playTime)} / {formatTime(duration)}</span>
-          </div>
-          <div className="review-actions">
-            <button className="secondary-button" onClick={onRestart} disabled={busy}>Record again <img src="/assets/replay-muted.svg" alt="" /></button>
-            <button className="primary-button" onClick={onSubmit} disabled={busy}>
-              {busy ? 'Submitting…' : 'Submit Recording'} <img src="/assets/520-4772.svg" alt="" />
-            </button>
-          </div>
+            {readingClips.map((clip, index) => clip ? (
+              <div key={index}>
+                <ReadingPlayback readingNumber={(index + 1) as 1 | 2} clip={clip} />
+                <button className="secondary-button" type="button" onClick={() => onRetryReading((index + 1) as 1 | 2)} disabled={busy || combining}>
+                  Record Reading {index + 1} again <img src="/assets/replay-muted.svg" alt="" />
+                </button>
+              </div>
+            ) : null)}
+            <div className="review-actions">
+              {readingClips[1]
+                ? <button className="primary-button" type="button" onClick={onSubmit} disabled={busy || combining || !combinedReady || !readingClips[0] || !readingClips[1]}>
+                  {busy ? 'Submitting…' : combining ? 'Preparing audio…' : 'Submit Recording'} <img src="/assets/520-4772.svg" alt="" />
+                </button>
+                : <button className="primary-button" type="button" onClick={onContinueReading} disabled={busy || combining || !readingClips[0]}>
+                  Record Reading 2 <span aria-hidden="true">→</span>
+                </button>}
+            </div>
           </div>
           {error ? <p className="inline-error" role="alert">{error}</p> : null}
+          {combining ? <p role="status">Preparing your combined recording…</p> : null}
           <div className="privacy-note"><img src="/assets/lock.svg" alt="" /><span>Your recording will be securely submitted for assessment. You won't be able to edit it after submitting.</span></div>
         </div>
       ) : (
@@ -463,6 +480,7 @@ function StudioPanel({
             </>
           ) : (
             <>
+              {/* <p>{recordingState === 'idle' ? `Start Reading ${readingNumber} when you are ready.` : `Recording Reading ${readingNumber} of 2`}</p> */}
               <div className="mic-orb-slot"><MicOrb recording={recordingState === 'recording'} /></div>
               {recordingState === 'recording'
                 ? <span className="recording-pill" role="status"><img src="/assets/student-recording/status.svg" alt="" />Recording...</span>
@@ -470,17 +488,18 @@ function StudioPanel({
                   ? <span className="paused-pill" role="status">Paused</span>
                   : <span className="recording-ready-pill" role="status">{recordingStarting ? 'Starting…' : 'Ready'}</span>}
               <div className="recording-time">{formatTime(recordingState === 'idle' ? 0 : elapsed)}</div>
+              <h2>Reading {readingNumber} of 2</h2>
               <div className="recording-control-group">
                 <div className="recording-actions">
-                  <button className="round-action round-restart" type="button" onClick={onRestart} aria-label="Start over" disabled={recordingState === 'idle'}><img src="/assets/student-recording/restart.svg" alt="" /></button>
+                  <button className="round-action round-restart" type="button" onClick={() => onRetryReading(readingNumber)} aria-label={`Record Reading ${readingNumber} again`} disabled={recordingState === 'idle'}><img src="/assets/student-recording/restart.svg" alt="" /></button>
                   {recordingState === 'idle'
-                    ? <button className="round-action round-pause" type="button" onClick={onBegin} aria-label="Start recording" disabled={recordingStarting}><img src="/assets/play.svg" alt="" /></button>
+                    ? <button className="round-action round-pause" type="button" onClick={onBegin} aria-label={`Start`} disabled={recordingStarting}><img src="/assets/play.svg" alt="" /></button>
                     : recordingState === 'recording'
                       ? <button className="round-action round-pause" type="button" onClick={onPause} aria-label="Pause recording"><img src="/assets/student-recording/pause.svg" alt="" /></button>
                       : <button className="round-action round-pause" type="button" onClick={onResume} aria-label="Resume recording"><img src="/assets/play.svg" alt="" /></button>}
-                  <button className="round-action round-finish" type="button" onClick={onFinish} aria-label="Finish recording" disabled={recordingState === 'idle' || !secondReadingComplete}><img src="/assets/student-recording/finish.svg" alt="" /></button>
+                  <button className="round-action round-finish" type="button" onClick={onFinish} aria-label={`Finish`} disabled={recordingState === 'idle'}><img src="/assets/student-recording/finish.svg" alt="" /></button>
                 </div>
-                <div className="recording-labels"><span>Start over</span><span>{recordingState === 'idle' ? recordingStarting ? 'Starting…' : 'Start' : recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>Finish</span></div>
+                <div className="recording-labels"><span>Restart</span><span>{recordingState === 'idle' ? recordingStarting ? 'Starting…' : `Start` : recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>{`Finish`}</span></div>
               </div>
               {error ? <p className="inline-error" role="alert">{error}</p> : null}
             </>
@@ -578,11 +597,13 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   const [modalError, setModalError] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [readingNumber, setReadingNumber] = useState(1)
+  const [readingNumber, setReadingNumber] = useState<1 | 2>(1)
   const [secondReadingComplete, setSecondReadingComplete] = useState(false)
   const [recordingStarting, setRecordingStarting] = useState(false)
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [elapsed, setElapsed] = useState(0)
+  const [readingClips, setReadingClips] = useState<[ReadingClip | null, ReadingClip | null]>([null, null])
+  const [combining, setCombining] = useState(false)
   const [clip, setClip] = useState<Blob | null>(null)
   const [clipUrl, setClipUrl] = useState<string | null>(null)
   const [clipError, setClipError] = useState('')
@@ -593,11 +614,19 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const readingClipsRef = useRef<[ReadingClip | null, ReadingClip | null]>([null, null])
+  const clipUrlRef = useRef<string | null>(null)
   const recordingStartRef = useRef(0)
   const recordingStartingRef = useRef(false)
+  const captureIdRef = useRef(0)
+  const segmentElapsedMsRef = useRef(0)
+  const segmentActiveSinceRef = useRef<number | null>(null)
+  const completedDurationMsRef = useRef<[number, number]>([0, 0])
+  const compositionRequestRef = useRef(0)
+  const captureFailedRef = useRef(false)
   const assessmentInFlightRef = useRef(false)
-  const secondReadingCompleteRef = useRef(false)
   const submissionKeysRef = useRef<WeakMap<Blob, Map<string, string>>>(new WeakMap())
+  const [captureId, setCaptureId] = useState(0)
 
   useEffect(() => {
     routeUrlRef.current = routeUrl
@@ -618,18 +647,36 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   useEffect(() => {
     if (recordingState !== 'recording') return
-    const timer = window.setInterval(() => {
-      setElapsed(current => {
-        const next = current + 1
-        if (link && next >= link.limits.max_audio_seconds) {
-          const recorder = recorderRef.current
-          if (recorder && recorder.state !== 'inactive') recorder.stop()
-          setClipError(`Recording stopped at the ${link.limits.max_audio_seconds}-second limit.`)
+    const maxSpeechMs = link
+      ? maxCombinedSpeechDurationSeconds(link.limits.max_audio_seconds, link.limits.max_audio_bytes) * 1000
+      : Number.POSITIVE_INFINITY
+    let timer: number | undefined
+    const updateRecordingTime = () => {
+      const activeSince = segmentActiveSinceRef.current
+      const currentSegmentMs = segmentElapsedMsRef.current
+        + (activeSince === null ? 0 : performance.now() - activeSince)
+      const totalMs = completedDurationMsRef.current[0] + completedDurationMsRef.current[1] + currentSegmentMs
+      setElapsed(Math.floor(currentSegmentMs / 1000))
+      const remainingMs = maxSpeechMs - totalMs
+      if (link && remainingMs <= 0) {
+        const recorder = recorderRef.current
+        if (recorder && recorder.state !== 'inactive') {
+          const now = performance.now()
+          if (segmentActiveSinceRef.current !== null) {
+            segmentElapsedMsRef.current += now - segmentActiveSinceRef.current
+            segmentActiveSinceRef.current = null
+          }
+          recorder.stop()
         }
-        return next
-      })
-    }, 1000)
-    return () => window.clearInterval(timer)
+        setClipError('The combined recording reached its duration or upload-size limit. Re-record a shorter reading.')
+        return
+      }
+      timer = window.setTimeout(updateRecordingTime, Math.min(200, Math.max(0, remainingMs)))
+    }
+    updateRecordingTime()
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
   }, [recordingState, link])
 
   useEffect(() => {
@@ -647,7 +694,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     }
 
     if (step === 'submit') {
-      if (!clip && !assessmentToken) {
+      if (!readingClips.some(Boolean) && !assessmentToken) {
         setFlowError('Your recording is not available in this session. Start again to continue.')
         setView('overview')
         navigate(`${basePath}/overview`, { replace: true })
@@ -658,7 +705,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     }
 
     navigate(`${basePath}/overview`, { replace: true })
-  }, [assessmentToken, basePath, clip, link, loading, location.search, navigate, step])
+  }, [assessmentToken, basePath, link, loading, location.search, navigate, readingClips, step])
 
   function cancelRecordingStart() {
     if (!recordingStartingRef.current) return
@@ -672,18 +719,30 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     recordingStartingRef.current = false
     setRecordingStarting(false)
     const recorder = recorderRef.current
-    if (recorder && recorder.state !== 'inactive') {
+    if (recorder) {
       recorder.ondataavailable = null
+      recorder.onerror = null
       recorder.onstop = null
-      recorder.stop()
+      if (recorder.state !== 'inactive') recorder.stop()
     }
     recorderRef.current = null
     streamRef.current?.getTracks().forEach(track => track.stop())
     streamRef.current = null
     chunksRef.current = []
-    secondReadingCompleteRef.current = false
+    compositionRequestRef.current += 1
+    readingClipsRef.current.forEach(reading => {
+      if (reading) URL.revokeObjectURL(reading.url)
+    })
+    readingClipsRef.current = [null, null]
+    if (clipUrlRef.current) URL.revokeObjectURL(clipUrlRef.current)
+    clipUrlRef.current = null
+    completedDurationMsRef.current = [0, 0]
+    segmentElapsedMsRef.current = 0
+    segmentActiveSinceRef.current = null
     setRecordingState('idle')
     setReadingNumber(1)
+    setReadingClips([null, null])
+    setCombining(false)
     setClip(null)
     setClipUrl(null)
     setElapsed(0)
@@ -692,7 +751,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     setFlowError('')
   }, [])
 
-  const hasUnsubmittedRecording = recordingState !== 'idle' || (clip !== null && !assessmentToken)
+  const hasUnsubmittedRecording = recordingState !== 'idle' || readingClips.some(Boolean) || (clip !== null && !assessmentToken)
   useEffect(() => {
     if (!hasUnsubmittedRecording && !recordingStarting) return
 
@@ -782,14 +841,19 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   useEffect(() => () => {
     const recorder = recorderRef.current
-    if (recorder && recorder.state !== 'inactive') {
+    if (recorder) {
       recorder.ondataavailable = null
+      recorder.onerror = null
       recorder.onstop = null
-      recorder.stop()
+      if (recorder.state !== 'inactive') recorder.stop()
     }
     streamRef.current?.getTracks().forEach(track => track.stop())
-    if (clipUrl) URL.revokeObjectURL(clipUrl)
-  }, [clipUrl])
+    readingClipsRef.current.forEach(reading => {
+      if (reading) URL.revokeObjectURL(reading.url)
+    })
+    if (clipUrlRef.current) URL.revokeObjectURL(clipUrlRef.current)
+    compositionRequestRef.current += 1
+  }, [])
 
   useEffect(() => () => {
     recordingStartRef.current += 1
@@ -798,22 +862,29 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   async function beginRecording() {
     if (recordingStartingRef.current || recordingState !== 'idle' || view !== 'record') return
-    if (clip && !window.confirm('Starting a new recording will replace your current recording. Continue?')) return
+    const recordingNumber = readingNumber
+    const readingIndex = recordingNumber - 1
+    if (link) {
+      const minimumDuration = link.required_readings * MIN_AUDIO_SECONDS_PER_READING
+      const maxSpeechSeconds = maxCombinedSpeechDurationSeconds(link.limits.max_audio_seconds, link.limits.max_audio_bytes)
+      if (maxSpeechSeconds + READING_SEPARATION_SECONDS < minimumDuration) {
+        setClipError(`This assessment link cannot accept the required ${minimumDuration}-second recording within its duration and upload-size limits. Contact your English center.`)
+        return
+      }
+      if (completedDurationMsRef.current[0] + completedDurationMsRef.current[1] >= maxSpeechSeconds * 1000) {
+        setClipError('The combined recording reached its duration or upload-size limit. Re-record a shorter reading.')
+        return
+      }
+    }
     const requestId = ++recordingStartRef.current
     recordingStartingRef.current = true
     setRecordingStarting(true)
     setFlowError('')
     setClipError('')
     setElapsed(0)
-    setClip(null)
-    setClipUrl(null)
-    setAssessmentToken('')
-    setReportUrl('')
-    setAssessmentStatus('')
-    setReportSession(null)
-    setReadingNumber(1)
-    setSecondReadingComplete(false)
-    secondReadingCompleteRef.current = false
+    segmentElapsedMsRef.current = 0
+    segmentActiveSinceRef.current = null
+    captureFailedRef.current = false
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       recordingStartingRef.current = false
       setRecordingStarting(false)
@@ -828,8 +899,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
         stream.getTracks().forEach(track => track.stop())
         return
       }
-      recordingStartingRef.current = false
-      setRecordingStarting(false)
       streamRef.current = stream
       const availableTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
       const mimeType = availableTypes.find(type => MediaRecorder.isTypeSupported(type))
@@ -839,34 +908,102 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
         if (event.data.size > 0) chunksRef.current.push(event.data)
       }
       recorder.onstop = () => {
+        recorder.ondataavailable = null
+        recorder.onerror = null
+        recorder.onstop = null
+        const activeSince = segmentActiveSinceRef.current
+        if (activeSince !== null) {
+          segmentElapsedMsRef.current += performance.now() - activeSince
+          segmentActiveSinceRef.current = null
+        }
+        const segmentDurationMs = segmentElapsedMsRef.current
         const resultType = recorder.mimeType || chunksRef.current[0]?.type || 'audio/webm'
         const nextClip = new Blob(chunksRef.current, { type: resultType })
-        setClip(nextClip)
-        setClipUrl(URL.createObjectURL(nextClip))
+        chunksRef.current = []
         setRecordingState('idle')
         recorderRef.current = null
         stream.getTracks().forEach(track => track.stop())
         streamRef.current = null
+        setElapsed(Math.floor(segmentDurationMs / 1000))
+        if (captureFailedRef.current) {
+          captureFailedRef.current = false
+          setFlowError('')
+          setClipError('The recording failed, so its partial audio was discarded. Please record this reading again.')
+          return
+        }
+        if (nextClip.size === 0) {
+          setClipError('No audio was captured. Try recording this reading again.')
+          return
+        }
+
+        const nextReadingClip: ReadingClip = {
+          blob: nextClip,
+          url: URL.createObjectURL(nextClip),
+          durationSeconds: segmentDurationMs / 1000,
+        }
+        const nextClips: [ReadingClip | null, ReadingClip | null] = [...readingClipsRef.current]
+        const previousClip = nextClips[readingIndex]
+        if (previousClip) URL.revokeObjectURL(previousClip.url)
+        nextClips[readingIndex] = nextReadingClip
+        readingClipsRef.current = nextClips
+        setReadingClips(nextClips)
+        const nextDurations = [...completedDurationMsRef.current] as [number, number]
+        nextDurations[readingIndex] = segmentDurationMs
+        completedDurationMsRef.current = nextDurations
+        setSecondReadingComplete(nextClips[1] !== null)
         navigateToView('review')
-        if (!secondReadingCompleteRef.current) {
-          setClipError(current => current || 'The recording ended before you marked both readings complete. Please record both readings again.')
-        } else if (nextClip.size === 0) {
-          setClipError('No audio was captured. Please record both readings again.')
-        } else if (nextClip.size > (link?.limits.max_audio_bytes ?? Number.MAX_SAFE_INTEGER)) {
-          setClipError('This recording is larger than the allowed file size. Please record again in a quiet place.')
+
+        if (nextClips[0] && nextClips[1] && link) {
+          const compositionId = ++compositionRequestRef.current
+          setCombining(true)
+          void combineReadingsToWav(nextClips[0].blob, nextClips[1].blob, {
+            minimumDurationSeconds: link.required_readings * MIN_AUDIO_SECONDS_PER_READING,
+            maxDurationSeconds: link.limits.max_audio_seconds,
+            maxBytes: link.limits.max_audio_bytes,
+          }).then(result => {
+            if (compositionId !== compositionRequestRef.current) return
+            if (clipUrlRef.current) URL.revokeObjectURL(clipUrlRef.current)
+            const combinedUrl = URL.createObjectURL(result.audio)
+            clipUrlRef.current = combinedUrl
+            setClip(result.audio)
+            setClipUrl(combinedUrl)
+            setClipError('')
+          }).catch(error => {
+            if (compositionId !== compositionRequestRef.current) return
+            setClip(null)
+            setClipUrl(null)
+            setClipError(error instanceof AudioCompositionError
+              ? error.message
+              : 'The browser could not combine the readings. Your recordings are still saved; try recording the affected reading again.')
+          }).finally(() => {
+            if (compositionId === compositionRequestRef.current) setCombining(false)
+          })
         }
       }
       recorder.onerror = () => {
-        setFlowError('The browser could not record audio. Please try again.')
+        captureFailedRef.current = true
         if (recorder.state !== 'inactive') recorder.stop()
       }
       recorderRef.current = recorder
       recorder.start(1000)
+      captureIdRef.current += 1
+      setCaptureId(captureIdRef.current)
+      segmentActiveSinceRef.current = performance.now()
+      recordingStartingRef.current = false
+      setRecordingStarting(false)
       setRecordingState('recording')
       navigateToView('record')
     } catch {
       grantedStream?.getTracks().forEach(track => track.stop())
       if (streamRef.current === grantedStream) streamRef.current = null
+      const failedRecorder = recorderRef.current
+      if (failedRecorder) {
+        failedRecorder.ondataavailable = null
+        failedRecorder.onerror = null
+        failedRecorder.onstop = null
+        if (failedRecorder.state !== 'inactive') failedRecorder.stop()
+        recorderRef.current = null
+      }
       if (requestId !== recordingStartRef.current) return
       recordingStartingRef.current = false
       setRecordingStarting(false)
@@ -876,7 +1013,13 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   function pauseRecording() {
     if (recorderRef.current?.state === 'recording') {
+      const activeSince = segmentActiveSinceRef.current
+      if (activeSince !== null) {
+        segmentElapsedMsRef.current += performance.now() - activeSince
+        segmentActiveSinceRef.current = null
+      }
       recorderRef.current.pause()
+      setElapsed(Math.floor(segmentElapsedMsRef.current / 1000))
       setRecordingState('paused')
     }
   }
@@ -884,56 +1027,91 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   function resumeRecording() {
     if (recorderRef.current?.state === 'paused') {
       recorderRef.current.resume()
+      segmentActiveSinceRef.current = performance.now()
       setRecordingState('recording')
     }
   }
 
   function finishRecording() {
-    if (!secondReadingComplete) {
-      setFlowError('Mark the second reading complete in the passage panel before finishing.')
-      return
-    }
+    const recorder = recorderRef.current
+    if (!recorder || recorder.state === 'inactive') return
     setFlowError('')
-    setClipError('')
-    if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop()
+    const activeSince = segmentActiveSinceRef.current
+    if (activeSince !== null) {
+      segmentElapsedMsRef.current += performance.now() - activeSince
+      segmentActiveSinceRef.current = null
+    }
+    recorder.stop()
   }
 
-  function restartRecording() {
+  function clearCombinedAudio() {
+    compositionRequestRef.current += 1
+    setCombining(false)
+    setClip(null)
+    setClipError('')
+    if (clipUrlRef.current) URL.revokeObjectURL(clipUrlRef.current)
+    clipUrlRef.current = null
+    setClipUrl(null)
+  }
+
+  function retryReading(readingToRetry: 1 | 2) {
     recordingStartRef.current += 1
     recordingStartingRef.current = false
     setRecordingStarting(false)
     const recorder = recorderRef.current
-    if (recorder && recorder.state !== 'inactive') {
+    if (recorder) {
       recorder.ondataavailable = null
+      recorder.onerror = null
       recorder.onstop = null
-      recorder.stop()
+      if (recorder.state !== 'inactive') recorder.stop()
     }
     recorderRef.current = null
     streamRef.current?.getTracks().forEach(track => track.stop())
     streamRef.current = null
+    chunksRef.current = []
+    const nextClips: [ReadingClip | null, ReadingClip | null] = [...readingClipsRef.current]
+    const readingIndex = readingToRetry - 1
+    const previousClip = nextClips[readingIndex]
+    if (previousClip) URL.revokeObjectURL(previousClip.url)
+    nextClips[readingIndex] = null
+    readingClipsRef.current = nextClips
+    setReadingClips(nextClips)
+    const nextDurations = [...completedDurationMsRef.current] as [number, number]
+    nextDurations[readingIndex] = 0
+    completedDurationMsRef.current = nextDurations
+    segmentElapsedMsRef.current = 0
+    segmentActiveSinceRef.current = null
     setRecordingState('idle')
-    setClip(null)
-    setClipUrl(null)
     setElapsed(0)
-    setReadingNumber(1)
-    setSecondReadingComplete(false)
-    secondReadingCompleteRef.current = false
+    setReadingNumber(readingToRetry)
+    setSecondReadingComplete(nextClips[1] !== null)
     setClipError('')
     setFlowError('')
     setAssessmentToken('')
     setReportUrl('')
     setAssessmentStatus('')
     setReportSession(null)
+    clearCombinedAudio()
+    navigateToView('record')
+  }
+
+  function continueToSecondReading() {
+    if (!readingClipsRef.current[0]) return
+    const maxSpeechSeconds = link
+      ? maxCombinedSpeechDurationSeconds(link.limits.max_audio_seconds, link.limits.max_audio_bytes)
+      : Number.POSITIVE_INFINITY
+    if (completedDurationMsRef.current[0] >= maxSpeechSeconds * 1000) {
+      setClipError('The combined recording reached its duration or upload-size limit. Re-record Reading 1 with a shorter duration.')
+      return
+    }
+    setReadingNumber(2)
+    setElapsed(0)
     navigateToView('record')
   }
 
   function openSubmit() {
-    if (!clip || clipError) {
-      setFlowError(clipError || 'Finish both readings in one recording before submitting.')
-      return
-    }
-    if (!secondReadingCompleteRef.current) {
-      setFlowError('Complete both readings in the passage panel before submitting.')
+    if (!readingClipsRef.current[0] || !readingClipsRef.current[1] || !clip || clipError || combining) {
+      setFlowError(clipError || 'Record and review both readings before submitting.')
       return
     }
     setModalError('')
@@ -941,7 +1119,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   }
 
   async function submitAssessment(name: string, email: string) {
-    if (assessmentInFlightRef.current || !link || !clip || clipError || !secondReadingCompleteRef.current) return
+    if (assessmentInFlightRef.current || !link || !clip || clipError || !readingClipsRef.current[0] || !readingClipsRef.current[1] || combining) return
     if (clip.size === 0 || clip.size > link.limits.max_audio_bytes) {
       setModalError(clip.size === 0
         ? 'No audio was captured. Please record both readings again.'
@@ -996,10 +1174,12 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     } catch {
       // Fall back to the report route built from the returned assessment token.
     }
+    const transferredAudioUrl = clipUrl
+    if (transferredAudioUrl) clipUrlRef.current = null
     navigate(path, {
       state: {
         passageTitle: link?.passage.title,
-        audioUrl: clipUrl,
+        audioUrl: transferredAudioUrl,
         assessmentId: reportSession?.assessmentId,
         assessmentToken,
         status: assessmentStatus,
@@ -1014,11 +1194,10 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   const activeStep: 1 | 2 | 3 = view === 'overview' || view === 'preview' ? 1 : view === 'record' ? 2 : 3
   const showReading = view === 'record' || view === 'review'
-  const duration = elapsed
   const panelError = flowError || clipError
 
   return (
-    <div className="student-app" onClickCapture={guardAssessmentLink}>
+    <div className="student-app" data-capture-id={captureId} onClickCapture={guardAssessmentLink}>
       <StudentHeader activeStep={activeStep} showInfo />
       <main className={`assessment-main ${showReading ? 'reading-stage' : ''}`}>
         <div className="assessment-grid">
@@ -1027,29 +1206,30 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
             view={view}
             readingNumber={readingNumber}
             secondReadingComplete={secondReadingComplete}
-            canProgressReadings={view === 'record' && recordingState !== 'idle'}
+            recordingState={recordingState}
+            captureId={captureId}
             onPreview={() => navigateToView('preview')}
             onBack={() => navigateToView('overview', true)}
             onBackToOverview={backToOverview}
-            onAdvanceToSecond={() => setReadingNumber(2)}
-            onCompleteSecond={() => { secondReadingCompleteRef.current = true; setSecondReadingComplete(true) }}
           />
           <StudioPanel
             view={view}
             recordingStarting={recordingStarting}
             recordingState={recordingState}
             elapsed={elapsed}
-            duration={duration}
             error={panelError}
             busy={busy}
-            audioUrl={clipUrl}
-            secondReadingComplete={secondReadingComplete}
+            readingNumber={readingNumber}
+            readingClips={readingClips}
+            combining={combining}
+            combinedReady={Boolean(clip) && !clipError}
             onPrepare={() => navigateToView('record')}
             onBegin={() => { void beginRecording() }}
             onPause={pauseRecording}
             onResume={resumeRecording}
             onFinish={finishRecording}
-            onRestart={restartRecording}
+            onRetryReading={retryReading}
+            onContinueReading={continueToSecondReading}
             onSubmit={openSubmit}
           />
         </div>
@@ -1137,6 +1317,7 @@ function ReportPage() {
     assessmentToken?: string
     status?: string
   } | null
+  const audioUrl = navState?.audioUrl
   const savedSession = useMemo(() => readReportSession(token), [token])
   const session = useMemo<SavedReportSession | null>(() => {
     if (navState?.assessmentId && navState.assessmentToken && navState.passageTitle) {
@@ -1154,6 +1335,23 @@ function ReportPage() {
   const [tab, setTab] = useState<ReportTab>('overview')
   const [audioPlaying, setAudioPlaying] = useState(false)
   const reportAudioRef = useRef<HTMLAudioElement | null>(null)
+  const pendingAudioRevokesRef = useRef<Map<string, number>>(new Map())
+
+  useEffect(() => {
+    if (!audioUrl?.startsWith('blob:')) return
+    const pendingTimer = pendingAudioRevokesRef.current.get(audioUrl)
+    if (pendingTimer !== undefined) {
+      window.clearTimeout(pendingTimer)
+      pendingAudioRevokesRef.current.delete(audioUrl)
+    }
+    return () => {
+      const timer = window.setTimeout(() => {
+        URL.revokeObjectURL(audioUrl)
+        pendingAudioRevokesRef.current.delete(audioUrl)
+      }, 0)
+      pendingAudioRevokesRef.current.set(audioUrl, timer)
+    }
+  }, [audioUrl])
 
   useEffect(() => {
     let stopped = false
@@ -1233,8 +1431,6 @@ function ReportPage() {
   const strengths = items.filter(item => item.status === 'SCORED' && (item.band === 'Perfect' || item.band === 'Good'))
   const currentItems = tab === 'sounds' ? grouped.sounds : tab === 'intonation' ? grouped.intonation : tab === 'stress' ? grouped.stress : items
   const passageTitle = navState?.passageTitle || session?.passageTitle || `Passage ${report.content.passage_id}`
-  const audioUrl = navState?.audioUrl
-
   return (
     <div className="student-app report-app">
       <StudentHeader activeStep={3} />

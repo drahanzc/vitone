@@ -1,0 +1,93 @@
+.speech-part {
+  transition: color 120ms ease;
+}
+
+.speech-part-read {
+  color: var(--ink);
+}
+
+.speech-part-upcoming {
+  color: #8195A7;
+}
+
+.sentence-row.speech-sentence-active p {
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 30px;
+}
+
+.speech-sentence-dim {
+  opacity: 0.68;
+  transition: opacity 180ms ease;
+}
+
+.sentence-row.speech-sentence-active {
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  opacity: 1;
+}
+
+.speech-sentence-active .sentence-number.active {
+  color: transparent;
+  background: linear-gradient(180deg, #001f3e 0%, #148fff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  font-family: "Google Sans Flex", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 30px;
+}
+
+.review-player-actions > div:not(.review-actions) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-player-actions > div:not(.review-actions) > section { width: 100%; min-width: 0; }
+.review-player-actions h3 { margin: 0 0 8px; color: var(--ink); font-size: 16px; font-weight: 500; }
+.review-player-actions > div:not(.review-actions) .audio-review-row { min-height: 100px; }
+.review-player-actions > div:not(.review-actions) .secondary-button { min-height: 44px; }
+.studio-panel-capture .studio-content-capture { gap: 8px; overflow-y: auto; }
+.studio-content-capture h2 { font-size: 24px; line-height: 1.25; }
+.studio-content-capture > p { font-size: 14px; }
+
+@media (max-width: 760px) {
+  .review-player-actions > div:not(.review-actions) .audio-review-row { min-height: 80px; }
+  .studio-content-capture h2 { font-size: 20px; }
+  .studio-panel-capture .studio-content-capture { padding: 54px 18px 22px; }
+  .recording-labels { font-size: 11px; }
+}
+
+.speech-recognition-status {
+  max-width: 100%;
+  color: #596477;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.speech-recognition-status.is-listening {
+  color: #356344;
+}
+
+.speech-recognition-status.is-error,
+.speech-recognition-status.is-unsupported {
+  color: #6b7280;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speech-part,
+  .speech-sentence-dim {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .sentence-row.speech-sentence-active p {
+    font-size: 18px;
+    line-height: 24px;
+  }
+}

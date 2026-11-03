@@ -20,6 +20,8 @@ export type SpeechRecognitionStatus = 'idle' | 'listening' | 'unsupported' | 'er
 
 export interface SpeechRecognitionPassage {
   sentences: PassageSentence[]
+  /** Which copy of the passage is currently being read. */
+  readingNumber: 1 | 2
   /** Index of the latest passage word confirmed by a final recognition result. */
   activeWordIndex: number | null
   /** A temporary highlight from interim speech that does not advance the cursor. */
@@ -33,6 +35,7 @@ export interface SpeechRecognitionPassage {
 interface SpeechRecognitionPassageOptions {
   text: string
   active: boolean
+  /** Kept for call-site compatibility; a capture can contain both readings. */
   readingNumber: number
   captureId: string | number
   lang?: string
@@ -40,6 +43,7 @@ interface SpeechRecognitionPassageOptions {
 
 interface RecognitionUiState {
   sessionKey: object
+  readingNumber: 1 | 2
   activeWordIndex: number | null
   provisionalWordIndex: number | null
   status: SpeechRecognitionStatus
@@ -53,6 +57,7 @@ type RecognitionUiUpdate = RecognitionUiChanges | ((state: RecognitionUiState) =
 function initialRecognitionUiState(sessionKey: object): RecognitionUiState {
   return {
     sessionKey,
+    readingNumber: 1,
     activeWordIndex: null,
     provisionalWordIndex: null,
     status: 'idle',
@@ -255,6 +260,27 @@ export function alignSpeechResult(
   }
 }
 
+/**
+ * Aligns a transcript across two consecutive readings of the same passage.
+ * The cursor remains forward-only across both readings, while the returned
+ * word index maps to the single passage displayed by the UI.
+ */
+export function alignContinuousTwoReadingResult(
+  expectedWords: readonly string[],
+  transcript: string,
+  nextExpectedIndex: number,
+  isFinal: boolean,
+): SpeechAlignment {
+  if (expectedWords.length === 0) return alignSpeechResult(expectedWords, transcript, nextExpectedIndex, isFinal)
+
+  const twoReadingWords = [...expectedWords, ...expectedWords]
+  const alignment = alignSpeechResult(twoReadingWords, transcript, nextExpectedIndex, isFinal)
+  return {
+    ...alignment,
+    wordIndex: alignment.wordIndex === null ? null : alignment.wordIndex % expectedWords.length,
+  }
+}
+
 function recognitionErrorMessage(error: string): string {
   switch (error) {
     case 'not-allowed':
@@ -283,12 +309,11 @@ function recognitionErrorMessage(error: string): string {
 export function useSpeechRecognitionPassage({
   text,
   active,
-  readingNumber,
   captureId,
   lang = 'en-US',
 }: SpeechRecognitionPassageOptions): SpeechRecognitionPassage {
   const { sentences, expectedWords } = useMemo(() => buildPassageSentences(text), [text])
-  const sessionKey = useMemo(() => ({ captureId, readingNumber, text }), [captureId, readingNumber, text])
+  const sessionKey = useMemo(() => ({ captureId, text }), [captureId, text])
   const [recognitionUi, setRecognitionUi] = useState<RecognitionUiState>(() => initialRecognitionUiState(sessionKey))
   const nextExpectedIndexRef = useRef(0)
   const currentUi = recognitionUi.sessionKey === sessionKey
@@ -335,16 +360,22 @@ export function useSpeechRecognitionPassage({
         }
         if (processedResultIndexes.has(index)) continue
         processedResultIndexes.add(index)
-        const alignment = alignSpeechResult(expectedWords, transcript, nextExpectedIndexRef.current, true)
+        const previousExpectedIndex = nextExpectedIndexRef.current
+        const alignment = alignContinuousTwoReadingResult(expectedWords, transcript, previousExpectedIndex, true)
         const matchedIndex = alignment.wordIndex
         if (matchedIndex === null) continue
         nextExpectedIndexRef.current = alignment.nextExpectedIndex
-        updateRecognitionUiState(setRecognitionUi, sessionKey, current => ({
-          activeWordIndex: current.activeWordIndex === null ? matchedIndex : Math.max(current.activeWordIndex, matchedIndex),
-        }))
+        const crossedFirstReading = previousExpectedIndex < expectedWords.length
+          && alignment.nextExpectedIndex === expectedWords.length
+        updateRecognitionUiState(setRecognitionUi, sessionKey, {
+          readingNumber: alignment.nextExpectedIndex >= expectedWords.length ? 2 : 1,
+          // At the exact boundary there is no second-reading word to highlight
+          // yet; the next interim/final result will establish its position.
+          activeWordIndex: crossedFirstReading ? null : matchedIndex,
+        })
       }
       const provisional = latestInterim
-        ? alignSpeechResult(expectedWords, latestInterim, nextExpectedIndexRef.current, false)
+        ? alignContinuousTwoReadingResult(expectedWords, latestInterim, nextExpectedIndexRef.current, false)
         : null
       updateRecognitionUiState(setRecognitionUi, sessionKey, {
         interimTranscript: latestInterim,
@@ -428,5 +459,14 @@ export function useSpeechRecognitionPassage({
     ? null
     : sentences.findIndex(sentence => sentence.parts.some(part => part.wordIndex === highlightedWordIndex))
 
-  return { sentences, activeWordIndex, provisionalWordIndex, activeSentenceIndex, status, message, interimTranscript }
+  return {
+    sentences,
+    readingNumber: currentUi.readingNumber,
+    activeWordIndex,
+    provisionalWordIndex,
+    activeSentenceIndex,
+    status,
+    message,
+    interimTranscript,
+  }
 }

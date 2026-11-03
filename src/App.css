@@ -452,15 +452,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 32px;
+  padding:  72px 40px;
   text-align: center;
 }
 
 /* Keep the orb anchored across setup and capture; longer content scrolls below it. */
 .studio-content-ready {
-  justify-content: flex-start;
   gap: 48px;
-  padding: 72px 40px;
   overflow-y: auto;
 }
 
@@ -482,11 +480,11 @@
 
 .studio-ready-copy {
   display: flex;
-  width: min(100%, 440px);
+  /* width: min(100%, 440px); */
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 32px;
 }
 
 .studio-content-ready > .inline-error,
@@ -572,8 +570,9 @@
   color: #3e3e3e;
   font-size: 15px;
   letter-spacing: 0.02em;
-  line-height: 1.4;
+  line-height: 1.6;
   white-space: pre-line;
+  text-align: justify;
 }
 
 .primary-button,
@@ -645,7 +644,6 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 0;
-  padding-top: 0;
 }
 
 .advice-card {
@@ -715,6 +713,15 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
   line-height: 1.15;
+}
+
+.continuous-recording-guidance {
+  max-width: 360px;
+  margin: -28px 0 0;
+  color: #6f7885;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .studio-panel-capture .studio-content { position: relative; }

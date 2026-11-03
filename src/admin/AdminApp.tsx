@@ -4,9 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
+  type SubmitEvent,
 } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import {
@@ -27,7 +29,6 @@ import {
   type CreateLinkRequest,
   type PassageChoice,
 } from './admin-api'
-import { getPublicLink } from '../student-api'
 import './admin.css'
 
 // Authentication is shared by the login page and every protected admin route.
@@ -97,6 +98,7 @@ type IconName =
   | 'plus'
   | 'settings'
   | 'chevron'
+  | 'users'
 
 function Icon({ name }: { name: IconName }) {
   const common = {
@@ -104,7 +106,7 @@ function Icon({ name }: { name: IconName }) {
     stroke: 'currentColor',
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
-    strokeWidth: 1.7,
+    strokeWidth: name === 'link' ? 1.5 : 1.7,
   }
 
   const paths: Record<IconName, ReactNode> = {
@@ -115,7 +117,7 @@ function Icon({ name }: { name: IconName }) {
     clock: <><circle cx="12" cy="12" r="8.8" /><path d="M12 7v5l3.3 2" /></>,
     check: <path d="m5 12.5 4.3 4.3L19.5 6.8" />,
     arrow: <><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></>,
-    link: <><path d="M10 13.8 8.7 15a4 4 0 1 1-5.7-5.7l3.2-3.2a4 4 0 0 1 5.7 0" /><path d="m14 10.2 1.3-1.3A4 4 0 1 1 21 14.6l-3.2 3.2a4 4 0 0 1-5.7 0" /><path d="m8.8 15.2 6.4-6.4" /></>,
+    link: <path transform="translate(1.333 4)" d="M4.6667 4 8.6667 4M8.6667 0 9.3333 0C10.3942 0 11.4116 0.4214 12.1618 1.1716 12.9119 1.9217 13.3333 2.9391 13.3333 4s-.4214 2.0783-1.1715 2.8284C11.4116 7.5786 10.3942 8 9.3333 8h-.6666M4.6667 8H4C2.9391 8 1.9217 7.5786 1.1716 6.8284.4214 6.0783 0 5.0609 0 4s.4214-2.0783 1.1716-2.8284C1.9217.4214 2.9391 0 4 0h.6667" />,
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
     eye: <><path d="M2.5 12s3.4-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.4 5.5-9.5 5.5S2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
     star: <path d="m12 3 2.7 5.7 6.3.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.3-.9L12 3Z" />,
@@ -125,9 +127,10 @@ function Icon({ name }: { name: IconName }) {
     plus: <><path d="M12 5v14M5 12h14" /></>,
     settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19.4 15 .1.1 1.1.9-1.2 2-1.3-.5a7.8 7.8 0 0 1-1.5.9l-.2 1.4h-2.4l-.3-1.4a7.8 7.8 0 0 1-1.5-.9l-1.3.5-1.2-2 1.1-.9a7.7 7.7 0 0 1 0-1.8l-1.1-.9 1.2-2 1.3.5a7.8 7.8 0 0 1 1.5-.9l.3-1.4h2.4l.2 1.4a7.8 7.8 0 0 1 1.5.9l1.3-.5 1.2 2-1.1.9a7.7 7.7 0 0 1 0 1.8Z" transform="translate(-1 -1)" /></>,
     chevron: <path d="m6 9 6 6 6-6" />,
+    users: <><path d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-4A4.5 4.5 0 0 0 3 18.5V20" /><circle cx="9.5" cy="7.5" r="3.5" /><path d="M17 11a3.5 3.5 0 1 0-1.2-6.8M21 20v-1.5a4.5 4.5 0 0 0-3.2-4.3" /></>,
   }
 
-  return <svg aria-hidden="true" viewBox="0 0 24 24" {...common}>{paths[name]}</svg>
+  return <svg aria-hidden="true" viewBox={name === 'link' ? '0 0 16 16' : '0 0 24 24'} {...common}>{paths[name]}</svg>
 }
 
 function BrandMark() {
@@ -280,15 +283,15 @@ function AdminSidebar({
           </NavLink>
         </nav>
       </section>
-      <div className="admin-side-divider" />
-      <section className="admin-sidebar-starred" aria-label="Starred">
+      {/* <div className="admin-side-divider" /> */}
+      {/* <section className="admin-sidebar-starred" aria-label="Starred">
         <div className="admin-sidebar-group-heading"><span>Starred</span><span className="admin-sidebar-add-icon" aria-hidden="true"><Icon name="plus" /></span></div>
         <p className="admin-sidebar-empty">No starred classes yet</p>
       </section>
       <div className="admin-side-divider" />
       <div className="admin-sidebar-settings" aria-label="Settings">
         <div className="admin-sidebar-static-link"><Icon name="settings" /><span>Setting</span></div>
-      </div>
+      </div> */}
       <div className="admin-sidebar-footer-divider" />
       <div className="admin-sidebar-bottom">
         <div className="admin-profile-avatar">{initials}</div>
@@ -304,9 +307,9 @@ function AdminTopbar({ activePage }: { activePage: string }) {
     <header className="admin-topbar">
       <div className="admin-breadcrumb">
         <Icon name="star" />
-        <div className="admin-breadcrumb-trail"><Link to="/admin">Dashboards</Link><span>/</span><strong>{activePage === 'Dashboard' ? 'Default' : activePage}</strong></div>
+        <div className="admin-breadcrumb-trail"><Link to="/admin">Dashboards</Link><span className={activePage === 'Dashboard' ? 'hidden' : ''}>/</span><strong>{activePage === 'Dashboard' ? '' : activePage}</strong></div>
       </div>
-      <div className="admin-topbar-actions" aria-hidden="true"><span><Icon name="bell" /></span><span><Icon name="info" /></span></div>
+      {/* <div className="admin-topbar-actions" aria-hidden="true"><span><Icon name="bell" /></span><span><Icon name="info" /></span></div> */}
     </header>
   )
 }
@@ -367,22 +370,12 @@ async function copyText(value: string): Promise<void> {
   if (!copied) throw new Error('Copy is unavailable in this browser. Select and copy the link manually.')
 }
 
-function passageContextToken(link: AssessmentLink): string | null {
-  try {
-    const segments = new URL(link.share_url, window.location.origin).pathname.split('/').filter(Boolean)
-    return segments.length >= 2 && segments[segments.length - 2] === 'a'
-      ? segments[segments.length - 1] || null
-      : null
-  } catch {
-    return null
-  }
-}
-
-function passageDescription(context: string | undefined): string {
-  const firstParagraph = context?.split(/\n\s*\n/, 1)[0]?.trim()
+function passageDescription(context: string | null | undefined, referenceText: string): string {
+  const firstParagraph = (context?.trim() || referenceText.trim()).split(/\n\s*\n/, 1)[0]
   if (!firstParagraph) return 'Students will read this passage aloud for assessment.'
   const sentences = firstParagraph.match(/[^.!?]+[.!?]+/g)
-  return sentences?.slice(0, 2).join(' ').trim() || firstParagraph
+  const excerpt = sentences?.slice(0, 2).join(' ').trim() || firstParagraph
+  return excerpt.length > 240 ? `${excerpt.slice(0, 237).trimEnd()}…` : excerpt
 }
 
 type RecentAssessment = AssessmentListItem & { linkTitle: string }
@@ -390,7 +383,6 @@ type RecentAssessment = AssessmentListItem & { linkTitle: string }
 type DashboardData = {
   passages: PassageChoice[]
   links: AssessmentLink[]
-  passageContexts: Record<string, string>
   recent: RecentAssessment[]
 }
 
@@ -399,7 +391,7 @@ function useDashboardData(
   updateSession: (session: CenterSession | null) => void,
   refreshIndex: number,
 ) {
-  const [data, setData] = useState<DashboardData>({ passages: [], links: [], passageContexts: {}, recent: [] })
+  const [data, setData] = useState<DashboardData>({ passages: [], links: [], recent: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -418,6 +410,7 @@ function useDashboardData(
     async function load() {
       setLoading(true)
       try {
+        if (!session) return
         const [passages, fetchedLinks] = await Promise.all([
           getPassages(session, updateSession),
           getAssessmentLinks(session, updateSession),
@@ -426,25 +419,9 @@ function useDashboardData(
         if (!active) return
         setData(current => ({ ...current, passages, links }))
 
-        const passageContextEntries = await Promise.all(passages.map(async passage => {
-          const link = links.find(item =>
-            item.passage_id === passage.passage_id
-            && item.passage_version === passage.version
-            && isShareableLink(item, Date.now()),
-          )
-          const token = link ? passageContextToken(link) : null
-          if (!token) return [passage.passage_id, ''] as const
-          try {
-            const publicLink = await getPublicLink(token)
-            return [passage.passage_id, publicLink.passage.context?.trim() || ''] as const
-          } catch {
-            return [passage.passage_id, ''] as const
-          }
-        }))
-        const contexts = Object.fromEntries(passageContextEntries)
-
         const assessmentPages = await Promise.all(links.slice(0, 8).map(async link => {
           try {
+            if (!session) return []
             const page = await getLinkAssessments(link.id, session, updateSession)
             return page.items.map(item => ({ ...item, linkTitle: link.title }))
           } catch {
@@ -456,7 +433,7 @@ function useDashboardData(
           .slice(0, 7)
 
         if (!active) return
-        setData({ passages, links, passageContexts: contexts, recent })
+        setData({ passages, links, recent })
         setError('')
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'Dashboard data could not be loaded.')
@@ -494,6 +471,7 @@ export function AdminDashboardPage() {
   const { session, updateSession } = useCenterAuth()
   const [refreshIndex, setRefreshIndex] = useState(0)
   const [selectedPassage, setSelectedPassage] = useState<PassageChoice | null>(null)
+  const [previewPassage, setPreviewPassage] = useState<PassageChoice | null>(null)
   const data = useDashboardData(session, updateSession, refreshIndex)
   const { copiedLinkId, copyLink } = useCopyAssessmentLink(data.setError)
   const [now] = useState(Date.now)
@@ -501,7 +479,6 @@ export function AdminDashboardPage() {
   const totalSubmissions = data.links.reduce((sum, link) => sum + link.submission_count, 0)
   const processingCount = data.links.reduce((sum, link) => sum + link.in_progress_count, 0)
   const completedCount = data.links.reduce((sum, link) => sum + link.completed_count, 0)
-  const activeLinks = data.links.filter(link => link.status === 'ACTIVE').length
 
   function handleCreated(link: AssessmentLink) {
     // Update the visible row immediately; the refresh also brings in fresh counts.
@@ -540,29 +517,29 @@ export function AdminDashboardPage() {
                   <article className="admin-passage-card" key={`${passage.passage_id}-${passage.version}`}>
                     <div className="admin-passage-media">
                       <img className="admin-passage-art" src="/assets/new-apartment.png" alt="" />
-                      {existingLink ? (
-                        <a className="admin-outline-button admin-passage-secondary" href={existingLink.share_url} target="_blank" rel="noreferrer">
-                          Preview assessment <Icon name="eye" />
-                        </a>
-                      ) : null}
+                      <button className="admin-outline-button admin-passage-secondary" type="button" onClick={() => setPreviewPassage(passage)}>
+                        Preview assessment <Icon name="eye" />
+                      </button>
                     </div>
                     <div className="admin-passage-content">
                       <div className="admin-passage-copy">
                         <h3>{passage.title}</h3>
-                        <p>{passageDescription(data.passageContexts[passage.passage_id])}</p>
-                        <small>{passage.word_count} words{existingLink ? ` · ${existingLink.required_readings} required ${existingLink.required_readings === 1 ? 'reading' : 'readings'}` : ''}</small>
+                        <p>{passageDescription(passage.context, passage.reference_text)}</p>
+                        <div className="admin-passage-stats" aria-label="Assessment details">
+                          <span className="admin-passage-stat"><Icon name="users" /><span>{passage.required_readings ?? 2} reading {passage.required_readings === 1 ? 'attempt' : 'attempts'}</span></span>
+                          <span className="admin-passage-stat-divider" aria-hidden="true" />
+                          <span className="admin-passage-stat"><Icon name="clock" /><span>{estimatedReadingTime(passage.word_count)} per reading</span></span>
+                        </div>
                       </div>
-                      <div className="admin-passage-actions">
-                        {existingLink ? (
-                          <button className="admin-primary-button admin-passage-create" type="button" onClick={() => void copyLink(existingLink)}>
-                            <span>{copiedLinkId === existingLink.id ? 'Copied' : 'Copy Link'}</span><Icon name="link" />
-                          </button>
-                        ) : (
-                          <button className="admin-primary-button admin-passage-create" type="button" onClick={() => setSelectedPassage(passage)}>
-                            Create Link <Icon name="link" />
-                          </button>
-                        )}
-                      </div>
+                      {existingLink ? (
+                        <button className="admin-primary-button admin-passage-create" type="button" onClick={() => void copyLink(existingLink)}>
+                          <span>{copiedLinkId === existingLink.id ? 'Copied' : 'Copy Link'}</span><Icon name="link" />
+                        </button>
+                      ) : (
+                        <button className="admin-primary-button admin-passage-create" type="button" onClick={() => setSelectedPassage(passage)}>
+                          <span>Create Link</span><Icon name="link" />
+                        </button>
+                      )}
                     </div>
                   </article>
                 )
@@ -574,13 +551,26 @@ export function AdminDashboardPage() {
         </div>
 
         <aside className="admin-share-panel">
-          <div className="admin-share-copy">
-            <span className="admin-eyebrow">READY TO SHARE</span>
-            <h2>{activeLinks} active assessment {activeLinks === 1 ? 'link' : 'links'}</h2>
-            <p>Share a link with your students so they can complete their reading assessment.</p>
-            <Link to="/admin/assessments" className="admin-share-link">View assessments <Icon name="arrow" /></Link>
+          <div className="admin-share-content">
+            <div className="admin-share-copy" aria-live="polite">
+              <h2>{data.loading ? 'Loading results…' : `${completedCount} ${completedCount === 1 ? 'result' : 'results'} ready to review`}</h2>
+              <p>{completedCount > 0 ? 'Review results from completed student assessments.' : 'Results from completed student assessments will appear here.'}</p>
+            </div>
+            <div className="admin-share-mascot" aria-hidden="true">
+              <div className="admin-mascot-orientation">
+                <div className="admin-mascot-assets">
+                  <img className="admin-mascot-glow" src="/assets/nota-mascot-glow.png" alt="" />
+                  <div className="admin-mascot-core">
+                    <img className="admin-mascot-body" src="/assets/nota-mascot-body.png" alt="" />
+                    <img className="admin-mascot-gloss" src="/assets/nota-mascot-gloss.png" alt="" />
+                    <span className="admin-mascot-eye admin-mascot-eye-left" />
+                    <span className="admin-mascot-eye admin-mascot-eye-right" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="admin-share-mascot" aria-hidden="true"><span className="admin-mascot-glow" /><span className="admin-mascot-core"><span className="admin-mascot-eye" /><span className="admin-mascot-eye" /></span></div>
+          <Link to="/admin/assessments" className="admin-share-link">Go to Assessments <Icon name="arrow" /></Link>
         </aside>
       </section>
 
@@ -593,7 +583,59 @@ export function AdminDashboardPage() {
           onCreated={handleCreated}
         />
       ) : null}
+      {previewPassage ? <PassagePreviewDialog passage={previewPassage} onClose={() => setPreviewPassage(null)} /> : null}
     </main>
+  )
+}
+
+function estimatedReadingTime(wordCount: number): string {
+  const fastestMinutes = Math.max(1, Math.round(wordCount / 160))
+  const slowestMinutes = Math.max(fastestMinutes, Math.ceil(wordCount / 120))
+  if (fastestMinutes === slowestMinutes) {
+    return `~${fastestMinutes} ${fastestMinutes === 1 ? 'minute' : 'minutes'}`
+  }
+  return `~${fastestMinutes}–${slowestMinutes} minutes`
+}
+
+function PassagePreviewDialog({ passage, onClose }: { passage: PassageChoice; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    dialog.showModal()
+    return () => {
+      if (dialog.open) dialog.close()
+    }
+  }, [])
+
+  function close() {
+    dialogRef.current?.close()
+    onClose()
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="admin-passage-preview-dialog"
+      aria-labelledby="passage-preview-title"
+      onCancel={event => { event.preventDefault(); close() }}
+      onClick={event => { if (event.target === event.currentTarget) close() }}
+    >
+      <section className="admin-passage-preview-content">
+        <header className="admin-passage-preview-heading">
+          <div><span className="admin-eyebrow">ASSESSMENT PREVIEW</span><h2 id="passage-preview-title">{passage.title}</h2></div>
+          <button className="admin-dialog-close" type="button" aria-label="Close passage preview" onClick={close}><Icon name="close" /></button>
+        </header>
+        <div className="admin-passage-preview-scroll">
+          <p className="admin-passage-preview-context">{passage.context?.trim() || 'No additional context provided.'}</p>
+          <section className="admin-passage-preview-text-section" aria-labelledby="passage-preview-text-label">
+            <h3 id="passage-preview-text-label">Passage text</h3>
+            <p className="admin-passage-preview-text">{passage.reference_text}</p>
+          </section>
+        </div>
+      </section>
+    </dialog>
   )
 }
 
@@ -694,7 +736,7 @@ function CreateLinkDialog({
     setCopied(false)
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  const submit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!session) return
 

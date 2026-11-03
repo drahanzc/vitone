@@ -387,6 +387,7 @@ function StudioPanel({
               <div className="studio-ready-copy">
                 <h2>Ready to Record?</h2>
                 <p className="studio-instructions">Please read aloud clearly.<br />You will be asked to read the passage twice.</p>
+                <p className="studio-note">You do not need to understand every single word; simply grasp the general context to make your reading sound more natural. Feel free to pause the recording between the first and second readings if you need a short break.</p>
                 <button className="primary-button start-button" onClick={onBegin}>Start <span aria-hidden="true">▶</span></button>
               </div>
               {error ? <p className="inline-error" role="alert">{error}</p> : null}

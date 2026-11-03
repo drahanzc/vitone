@@ -690,7 +690,23 @@ export interface components {
             id: string;
         };
         PassageChoice: {
+            /**
+             * @description Optional learner-facing context for this passage version.
+             * @example The passage describes a cousin adjusting to life in a new city.
+             */
+            context?: string | null;
             passage_id: string;
+            /**
+             * @description Full learner-facing passage text for center-side previews.
+             * @example Hello world.
+             */
+            reference_text: string;
+            /**
+             * Format: int32
+             * @description Number of readings required when a link is created for this passage.
+             * @example 2
+             */
+            required_readings: number;
             title: string;
             version: string;
             word_count: number;
@@ -2538,7 +2554,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Available passage versions */
+            /** @description Available passage versions with preview content and required readings for new links */
             200: {
                 headers: {
                     [name: string]: unknown;

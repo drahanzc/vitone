@@ -1972,7 +1972,7 @@
         "operationId": "list_passages",
         "responses": {
           "200": {
-            "description": "Available passage versions",
+            "description": "Available passage versions with preview content and required readings for new links",
             "content": {
               "application/json": {
                 "schema": {
@@ -2773,11 +2773,32 @@
           "passage_id",
           "version",
           "title",
-          "word_count"
+          "word_count",
+          "reference_text",
+          "required_readings"
         ],
         "properties": {
+          "context": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional learner-facing context for this passage version.",
+            "example": "The passage describes a cousin adjusting to life in a new city."
+          },
           "passage_id": {
             "type": "string"
+          },
+          "reference_text": {
+            "type": "string",
+            "description": "Full learner-facing passage text for center-side previews.",
+            "example": "Hello world."
+          },
+          "required_readings": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of readings required when a link is created for this passage.",
+            "example": 2
           },
           "title": {
             "type": "string"

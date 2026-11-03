@@ -3,10 +3,8 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import {
   getPublicLink,
   MIN_AUDIO_SECONDS_PER_READING,
-  saveReportSession,
   submitPublicAssessment,
   type PublicLink,
-  type SavedReportSession,
 } from '../student-api'
 import { errorMessage, type FlowView, type RecordingState } from '../app/types'
 import { LoadingScreen, Mascot, MessageScreen, StudentHeader } from '../components/StudentChrome'
@@ -40,9 +38,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   const [clipUrl, setClipUrl] = useState<string | null>(null)
   const [clipError, setClipError] = useState('')
   const [assessmentToken, setAssessmentToken] = useState('')
-  const [reportUrl, setReportUrl] = useState('')
-  const [assessmentStatus, setAssessmentStatus] = useState('')
-  const [reportSession, setReportSession] = useState<SavedReportSession | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const retryingRecordingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
@@ -496,9 +491,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     setClipError('')
     setFlowError('')
     setAssessmentToken('')
-    setReportUrl('')
-    setAssessmentStatus('')
-    setReportSession(null)
     clearRecording()
   }
 
@@ -539,16 +531,8 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
         consentVersion: link.consent.version,
         audio: clip,
       }, idempotencyKey)
-      const reportSession: SavedReportSession = {
-        assessmentId: created.assessment_id,
-        assessmentToken: created.assessment_token,
-        passageTitle: link.passage.title,
-      }
-      saveReportSession(reportSession)
-      setReportSession(reportSession)
+      // Student report delivery is disabled for privacy; retain only the submitted state.
       setAssessmentToken(created.assessment_token)
-      setReportUrl(created.report_url)
-      setAssessmentStatus(created.status)
       setModalOpen(false)
     } catch (error) {
       setModalError(errorMessage(error))
@@ -556,28 +540,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
       assessmentInFlightRef.current = false
       setBusy(false)
     }
-  }
-
-  function openReport() {
-    const fallbackPath = `/r/${encodeURIComponent(assessmentToken)}`
-    let path = fallbackPath
-    try {
-      const report = new URL(reportUrl, window.location.origin)
-      path = `${report.pathname}${report.search}${report.hash}`
-    } catch {
-      // Fall back to the report route built from the returned assessment token.
-    }
-    const transferredAudioUrl = clipUrl
-    if (transferredAudioUrl) clipUrlRef.current = null
-    navigate(path, {
-      state: {
-        passageTitle: link?.passage.title,
-        audioUrl: transferredAudioUrl,
-        assessmentId: reportSession?.assessmentId,
-        assessmentToken,
-        status: assessmentStatus,
-      },
-    })
   }
 
   if (loading) return <div className="student-app"><LoadingScreen /></div>
@@ -626,10 +588,9 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
       {view === 'submitted' ? (
         <div className="modal-backdrop">
           <section className="success-modal" role="dialog" aria-modal="true" aria-labelledby="success-title">
-            <button className="modal-close" onClick={openReport} aria-label="Close">×</button>
             <Mascot />
             <h2 id="success-title">Submitted!</h2>
-            <button className="primary-button" onClick={openReport}>View my report <span aria-hidden="true">→</span></button>
+            <p>Your assessment was received. Your English center can review the results.</p>
           </section>
         </div>
       ) : null}

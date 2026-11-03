@@ -56,7 +56,6 @@ function RecordingPlayback({ clipUrl, durationSeconds }: { clipUrl: string; dura
 
   return (
     <section aria-label="Complete recording playback">
-      <h3>Complete recording</h3>
       <audio
         ref={audioRef}
         src={clipUrl}

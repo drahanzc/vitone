@@ -19,6 +19,7 @@ type IconName =
   | 'settings'
   | 'chevron'
   | 'users'
+  | 'pdf'
 
 export function Icon({ name }: { name: IconName }) {
   const common = {
@@ -48,6 +49,7 @@ export function Icon({ name }: { name: IconName }) {
     settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19.4 15 .1.1 1.1.9-1.2 2-1.3-.5a7.8 7.8 0 0 1-1.5.9l-.2 1.4h-2.4l-.3-1.4a7.8 7.8 0 0 1-1.5-.9l-1.3.5-1.2-2 1.1-.9a7.7 7.7 0 0 1 0-1.8l-1.1-.9 1.2-2 1.3.5a7.8 7.8 0 0 1 1.5-.9l.3-1.4h2.4l.2 1.4a7.8 7.8 0 0 1 1.5.9l1.3-.5 1.2 2-1.1.9a7.7 7.7 0 0 1 0 1.8Z" transform="translate(-1 -1)" /></>,
     chevron: <path d="m6 9 6 6 6-6" />,
     users: <><path d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-4A4.5 4.5 0 0 0 3 18.5V20" /><circle cx="9.5" cy="7.5" r="3.5" /><path d="M17 11a3.5 3.5 0 1 0-1.2-6.8M21 20v-1.5a4.5 4.5 0 0 0-3.2-4.3" /></>,
+    pdf: <><path d="M6 3h8l4 4v14H6zM14 3v4h4M12 10v7m-3-3 3 3 3-3" /></>,
   }
 
   return <svg aria-hidden="true" viewBox={name === 'link' ? '0 0 16 16' : '0 0 24 24'} {...common}>{paths[name]}</svg>

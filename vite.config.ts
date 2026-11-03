@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
         '/api': { target: apiTarget, changeOrigin: true },
         '/auth': { target: apiTarget, changeOrigin: true },
         '/assessment-links': { target: apiTarget, changeOrigin: true },
+        '/assessments': { target: apiTarget, changeOrigin: true },
         '/center': { target: apiTarget, changeOrigin: true },
         '/health': { target: apiTarget, changeOrigin: true },
         '/me': { target: apiTarget, changeOrigin: true },

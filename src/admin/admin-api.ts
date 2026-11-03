@@ -130,12 +130,12 @@ export async function getFreshCenterSession(
   }
 }
 
-export async function centerRequest<T>(
+async function centerFetch(
   path: string,
   session: CenterSession,
   onSessionChange: (session: CenterSession | null) => void,
   init?: RequestInit,
-): Promise<T> {
+): Promise<Response> {
   let current = await getFreshCenterSession(session, onSessionChange)
 
   const send = (accessToken: string) => {
@@ -162,8 +162,29 @@ export async function centerRequest<T>(
     onSessionChange(null)
   }
   if (!response.ok) throw await readError(response)
+  return response
+}
+
+export async function centerRequest<T>(
+  path: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await centerFetch(path, session, onSessionChange, init)
   if (response.status === 204) return undefined as T
   return await response.json() as T
+}
+
+export async function getCenterReportPdf(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+): Promise<Blob> {
+  const response = await centerFetch(`/assessments/${encodeURIComponent(assessmentId)}/report.pdf`, session, onSessionChange, {
+    headers: { Accept: 'application/pdf' },
+  })
+  return response.blob()
 }
 
 export async function revokeCenterSession(
@@ -214,8 +235,21 @@ export function getLinkAssessments(
   linkId: string,
   session: CenterSession,
   onSessionChange: (session: CenterSession | null) => void,
+  cursor?: string,
+  status?: 'COMPLETED',
 ): Promise<AssessmentPage> {
-  return centerRequest(`/assessment-links/${encodeURIComponent(linkId)}/assessments?limit=5`, session, onSessionChange)
+  const query = new URLSearchParams({ limit: '5' })
+  if (cursor) query.set('cursor', cursor)
+  if (status) query.set('status', status)
+  return centerRequest(`/assessment-links/${encodeURIComponent(linkId)}/assessments?${query.toString()}`, session, onSessionChange)
+}
+
+export function getLinkedAssessment(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+): Promise<components['schemas']['LinkedAssessmentDetailResponse']> {
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}`, session, onSessionChange)
 }
 
 export function createAssessmentLink(

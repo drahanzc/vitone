@@ -15,8 +15,10 @@ import {
   createAssessmentLink,
   getAssessmentLinks,
   getCenterProfile,
+  getCenterReportPdf,
   getFreshCenterSession,
   getLinkAssessments,
+  getLinkedAssessment,
   getPassages,
   loginCenter,
   readCenterSession,
@@ -249,11 +251,13 @@ async function copyText(value: string): Promise<void> {
 }
 
 function passageDescription(context: string | null | undefined, referenceText: string): string {
-  const firstParagraph = (context?.trim() || referenceText.trim()).split(/\n\s*\n/, 1)[0]
-  if (!firstParagraph) return 'Students will read this passage aloud for assessment.'
-  const sentences = firstParagraph.match(/[^.!?]+[.!?]+/g)
-  const excerpt = sentences?.slice(0, 2).join(' ').trim() || firstParagraph
-  return excerpt.length > 240 ? `${excerpt.slice(0, 237).trimEnd()}…` : excerpt
+  const summary = context?.trim()
+  const excerpt = referenceText.trim().split(/\n\s*\n/, 1)[0]
+  const description = summary && summary.length < 140 && excerpt && excerpt !== summary
+    ? `${summary} Passage excerpt: ${excerpt}`
+    : summary || excerpt
+  if (!description) return 'Students will read this passage aloud for assessment.'
+  return description.length > 400 ? `${description.slice(0, 397).trimEnd()}…` : description
 }
 
 type RecentAssessment = AssessmentListItem & { linkTitle: string }
@@ -359,10 +363,10 @@ export function AdminDashboardPage() {
   const completedCount = data.links.reduce((sum, link) => sum + link.completed_count, 0)
   const previewLink = previewPassage
     ? data.links.find(link =>
-        link.passage_id === previewPassage.passage_id
-        && link.passage_version === previewPassage.version
-        && isShareableLink(link, now),
-      ) ?? null
+      link.passage_id === previewPassage.passage_id
+      && link.passage_version === previewPassage.version
+      && isShareableLink(link, now),
+    ) ?? null
     : null
 
   function handleCreated(link: AssessmentLink) {
@@ -792,8 +796,8 @@ export function AdminAssessmentsPage() {
   const [refreshIndex, setRefreshIndex] = useState(0)
   const [selectedPassage, setSelectedPassage] = useState<PassageChoice | null>(null)
   const [selectedPassageId, setSelectedPassageId] = useState('')
-  const [query, setQuery] = useState('')
-  const [now] = useState(Date.now)
+  const [query, _setQuery] = useState('')
+  const [visibleCount, setVisibleCount] = useState(5)
   const { copiedLinkId, copyLink } = useCopyAssessmentLink(setError)
 
   useEffect(() => {
@@ -815,7 +819,7 @@ export function AdminAssessmentsPage() {
   }, [session, updateSession, refreshIndex])
 
   const visibleLinks = links.filter(link =>
-    `${link.title} ${link.passage_id} ${link.status}`.toLowerCase().includes(query.toLowerCase()),
+    `${link.title} ${link.passage_id} ${link.status} ${passages.find(passage => passage.passage_id === link.passage_id)?.title || ''}`.toLowerCase().includes(query.toLowerCase()),
   )
 
   function handleCreated(link: AssessmentLink) {
@@ -831,7 +835,7 @@ export function AdminAssessmentsPage() {
   return (
     <main className="admin-page admin-assessments-page">
       <section className="admin-page-heading">
-        <div><h1>Assessments</h1><p>Create and manage links shared with your students.</p></div>
+        <div><h1>Assessments</h1><p>View and manage student submissions for each assessment.</p></div>
         <div className="admin-heading-actions">
           {passages.length > 1 ? (
             <>
@@ -841,7 +845,7 @@ export function AdminAssessmentsPage() {
               </select>
             </>
           ) : null}
-          <button
+          {/* <button
             className="admin-primary-button"
             type="button"
             disabled={!passages.length}
@@ -849,36 +853,20 @@ export function AdminAssessmentsPage() {
               const passage = passages.find(item => item.passage_id === selectedPassageId) || passages[0]
               if (passage) setSelectedPassage(passage)
             }}
-          >Create assessment <Icon name="arrow" /></button>
+          >Create assessment <Icon name="arrow" /></button> */}
         </div>
       </section>
       {error ? <div className="admin-error-banner" role="alert">{error}</div> : null}
 
-      <section className="admin-links-panel admin-panel">
-        <div className="admin-links-toolbar">
-          <div><h2>Assessment links</h2><p>{links.length} links created</p></div>
-          <label className="admin-search"><Icon name="search" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search assessment links" /></label>
-        </div>
-        <div className="admin-table-scroll">
-          <table className="admin-table admin-links-table">
-            <thead><tr><th>Assessment</th><th>Passage</th><th>Created</th><th>Submissions</th><th>Status</th><th>Share link</th></tr></thead>
-            <tbody>
-              {loading ? <tr><td colSpan={6} className="admin-table-message">Loading assessment links…</td></tr> : visibleLinks.length ? visibleLinks.map(link => (
-                <AssessmentLinkRow
-                  key={link.id}
-                  link={link}
-                  passageTitle={passages.find(passage => passage.passage_id === link.passage_id)?.title || `Passage ${link.passage_id}`}
-                  now={now}
-                  copied={copiedLinkId === link.id}
-                  onCopy={() => void copyLink(link)}
-                />
-              )) : (
-                <tr><td colSpan={6} className="admin-table-message">{query ? 'No links match your search.' : 'No assessment links yet. Create one to share with your students.'}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {/* <div className="admin-assessments-toolbar">
+        <p>{loading ? 'Loading assessments…' : `${visibleLinks.length} ${visibleLinks.length === 1 ? 'assessment' : 'assessments'}`}</p>
+        <label className="admin-search"><Icon name="search" /><span className="visually-hidden">Search assessments</span><input value={query} onChange={event => { _setQuery(event.target.value); setVisibleCount(5) }} placeholder="Search assessments" /></label>
+      </div> */}
+      {!loading && !visibleLinks.length ? <div className="admin-empty-state admin-panel"><Icon name="folder" /><h3>{query ? 'No matching assessments' : 'No assessments yet'}</h3><p>{query ? 'Try another search.' : 'Create an assessment to share with your students.'}</p></div> : null}
+      {session ? visibleLinks.slice(0, visibleCount).map(link => (
+        <AssessmentResults key={link.id} link={link} passageTitle={passages.find(passage => passage.passage_id === link.passage_id && passage.version === link.passage_version)?.title || `Passage ${link.passage_id}`} session={session} updateSession={updateSession} copied={copiedLinkId === link.id} onCopy={() => void copyLink(link)} />
+      )) : null}
+      {visibleLinks.length > visibleCount ? <button className="admin-outline-button admin-load-assessments" type="button" onClick={() => setVisibleCount(count => count + 5)}>Show more assessments</button> : null}
       {selectedPassage ? (
         <CreateLinkDialog
           passage={selectedPassage}
@@ -891,33 +879,177 @@ export function AdminAssessmentsPage() {
   )
 }
 
-function AssessmentLinkRow({
-  link,
-  passageTitle,
-  now,
-  copied,
-  onCopy,
-}: {
+function AssessmentResults({ link, passageTitle, session, updateSession, copied, onCopy }: {
   link: AssessmentLink
   passageTitle: string
-  now: number
+  session: CenterSession
+  updateSession: (session: CenterSession | null) => void
   copied: boolean
   onCopy: () => void
 }) {
-  const unavailable = !isShareableLink(link, now) && link.status === 'ACTIVE'
+  const [filter, setFilter] = useState<SubmissionFilter>('all')
+  const [now] = useState(Date.now)
+
   return (
-    <tr>
-      <td><strong>{link.title}</strong><small className="admin-table-subtitle">{link.required_readings} required {link.required_readings === 1 ? 'reading' : 'readings'}</small></td>
-      <td>{passageTitle}<small className="admin-table-subtitle">Version {link.passage_version}</small></td>
-      <td>{formatDate(link.created_at)}</td>
-      <td>{link.submission_count}{link.max_submissions ? ` / ${link.max_submissions}` : ''}<small className="admin-table-subtitle">{link.completed_count} completed · {link.in_progress_count} in progress</small></td>
-      <td><span className={`admin-status ${statusStyle(link.status)}`}><i />{statusName(link.status)}{unavailable ? ' · unavailable' : ''}</span></td>
-      <td>
-        <div className="admin-link-url-cell">
-          <a href={link.share_url} target="_blank" rel="noreferrer" title={link.share_url}>{link.share_url}</a>
-          <button className="admin-copy-row-button" type="button" onClick={onCopy}><Icon name="link" />{copied ? 'Copied' : 'Copy'}</button>
+    <section className="admin-assessment-group" aria-labelledby={`assessment-title-${link.id}`}>
+      <div className="admin-assessment-summary">
+        <div className="admin-assessment-description">
+          <h2 id={`assessment-title-${link.id}`}>{link.title}</h2>
+          <p>{passageTitle} · Version {link.passage_version}</p>
+          <div className="admin-assessment-meta"><span className={`admin-status ${statusStyle(link.status)}`}><i />{statusName(link.status)}{link.status === 'ACTIVE' && !isShareableLink(link, now) ? ' · unavailable' : ''}</span><span>Created {formatDate(link.created_at)}</span><button className="admin-copy-row-button" type="button" onClick={onCopy}><Icon name="link" />{copied ? 'Copied' : 'Copy link'}</button></div>
         </div>
-      </td>
-    </tr>
+        <div className="admin-overview-cards" aria-label={`Submission overview for ${link.title}`}>
+          <MetricCard label="Total submissions" value={String(link.submission_count)} icon="submissions" />
+          <MetricCard label="Processing" value={String(link.in_progress_count)} icon="processing" />
+          <MetricCard label="Completed" value={String(link.completed_count)} icon="completed" />
+        </div>
+      </div>
+      <div className="admin-results-panel admin-panel">
+        <div className="admin-results-heading">
+          <div><h3>Student submissions</h3><p>Results for {link.title}</p></div>
+          <div className="admin-results-filters" role="group" aria-label={`Filter submissions for ${link.title}`}>
+            {([['all', 'All', link.submission_count], ['processing', 'Processing', link.in_progress_count], ['completed', 'Completed', link.completed_count]] as const).map(([value, label, count]) => (
+              <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} ({count})</button>
+            ))}
+          </div>
+        </div>
+        <SubmissionTable key={filter} link={link} filter={filter} session={session} updateSession={updateSession} />
+      </div>
+    </section>
+  )
+}
+
+type SubmissionFilter = 'all' | 'processing' | 'completed'
+
+function SubmissionTable({ link, filter, session, updateSession }: {
+  link: AssessmentLink
+  filter: SubmissionFilter
+  session: CenterSession
+  updateSession: (session: CenterSession | null) => void
+}) {
+  const [items, setItems] = useState<AssessmentListItem[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [requestCursor, setRequestCursor] = useState<string | undefined>()
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    async function loadPage() {
+      let next = requestCursor
+      const collected: AssessmentListItem[] = []
+      const seen = new Set<string>(next ? [next] : [])
+      // Processing spans four API statuses. Scan a bounded number of pages per request.
+      for (let pageNumber = 0; pageNumber < (filter === 'processing' ? 5 : 1); pageNumber++) {
+        const page = await getLinkAssessments(link.id, session, updateSession, next, filter === 'completed' ? 'COMPLETED' : undefined)
+        if (!active) return null
+        collected.push(...page.items.filter(item => filter !== 'processing' || ['CREATED', 'UPLOADING', 'UPLOADED', 'PROCESSING'].includes(item.status)))
+        next = page.next_cursor || undefined
+        if (!next) break
+        if (seen.has(next)) throw new Error('Could not load more submissions. Please try again.')
+        seen.add(next)
+        if (collected.length >= 5) break
+      }
+      return { items: collected, next_cursor: next }
+    }
+    loadPage()
+      .then(page => {
+        if (!page) return
+        if (!active) return
+        setItems(current => requestCursor ? [...current.filter(item => !page.items.some(next => next.id === item.id)), ...page.items] : page.items)
+        setCursor(page.next_cursor || null)
+      })
+      .catch(cause => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Student submissions could not be loaded.')
+      })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [link.id, filter, session, updateSession, requestCursor, attempt])
+
+  return (
+    <>
+        <div className="admin-table-scroll">
+          <table className="admin-table admin-results-table">
+            <thead><tr><th>Student</th><th>Email</th><th>Submitted at</th><th>Status</th><th>Result</th></tr></thead>
+            <tbody>
+              {items.map(item => (
+                <tr key={item.id}>
+                  <td><strong>{item.learner_reference}</strong></td>
+                  <td><StudentEmail assessmentId={item.id} session={session} updateSession={updateSession} /></td>
+                  <td>{formatDate(item.created_at)}</td>
+                  <td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td>
+                  <td>{item.status === 'COMPLETED' ? <ReportDownload item={item} session={session} updateSession={updateSession} /> : '—'}</td>
+                </tr>
+              ))}
+              {!items.length && !error ? <tr><td className="admin-table-message" colSpan={5}>{loading ? 'Loading submissions…' : cursor ? 'No matches in the pages checked. Load more to continue.' : 'No submissions in this view.'}</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+        {error ? <p className="admin-form-error" role="alert">{error} <button type="button" className="admin-assessment-select" onClick={() => { setError(''); setLoading(true); setAttempt(value => value + 1) }}>Try again</button></p> : null}
+        <div className="admin-results-footer">
+          <span>{items.length} {items.length === 1 ? 'submission' : 'submissions'} loaded</span>
+          {cursor && !error ? <button className="admin-outline-button" type="button" disabled={loading} onClick={() => { setLoading(true); setRequestCursor(cursor) }}>{loading ? 'Loading…' : 'Load more'}</button> : null}
+        </div>
+    </>
+  )
+}
+
+function StudentEmail({ assessmentId, session, updateSession }: {
+  assessmentId: string
+  session: CenterSession
+  updateSession: (session: CenterSession | null) => void
+}) {
+  const [email, setEmail] = useState<string | null | undefined>()
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    getLinkedAssessment(assessmentId, session, updateSession)
+      .then(detail => { if (active) setEmail(detail.learner_email ?? null) })
+      .catch(() => { if (active) setFailed(true) })
+    return () => { active = false }
+  }, [assessmentId, session, updateSession, attempt])
+
+  if (failed) return <button className="admin-assessment-select" type="button" onClick={() => { setFailed(false); setEmail(undefined); setAttempt(value => value + 1) }}>Email unavailable · Retry</button>
+  return <span>{email === undefined ? 'Loading…' : email || '—'}</span>
+}
+
+function ReportDownload({ item, session, updateSession }: {
+  item: AssessmentListItem
+  session: CenterSession
+  updateSession: (session: CenterSession | null) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function download() {
+    setBusy(true)
+    setError('')
+    try {
+      const pdf = await getCenterReportPdf(item.id, session, updateSession)
+      const url = URL.createObjectURL(pdf)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `report-${item.id}.pdf`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The PDF could not be downloaded.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="admin-report-cell">
+      <button className="admin-report-download" type="button" disabled={busy} onClick={() => void download()} aria-label={`Download PDF report for ${item.learner_reference}`}>
+        <Icon name="pdf" /><span>{busy ? 'Downloading…' : 'PDF'}</span>
+      </button>
+      {error ? <span className="admin-report-error" role="alert">{error}</span> : null}
+    </div>
   )
 }

@@ -11,7 +11,8 @@ import {
 import { AssessmentRoute } from './screens/AssessmentFlow'
 import { HomePage } from './screens/HomePage'
 import { NotFoundPage } from './screens/NotFoundPage'
-import { ReportPage } from './screens/ReportPage'
+// Student report screen is intentionally disabled for privacy.
+// import { ReportPage } from './screens/ReportPage'
 
 export default function App() {
   return (
@@ -20,7 +21,8 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/a/:token" element={<AssessmentRoute />} />
         <Route path="/a/:token/:step" element={<AssessmentRoute />} />
-        <Route path="/r/:token" element={<ReportPage />} />
+        {/* Student reports are intentionally not supported for students due to privacy. */}
+        {/* <Route path="/r/:token" element={<ReportPage />} /> */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin" element={<AdminProtectedLayout />}>
           <Route index element={<AdminDashboardPage />} />

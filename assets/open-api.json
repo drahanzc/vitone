@@ -10,264 +10,6 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/api/assessments/assess": {
-      "post": {
-        "tags": [
-          "assessments"
-        ],
-        "operationId": "combined_assess",
-        "parameters": [
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "description": "Optional UUID used to safely retry this upload",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Create an assessment and upload one original recording. The backend splits it into the configured number of readings.",
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/CombinedAssessRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Assessment accepted for asynchronous processing",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Assessment"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid multipart fields or configured reading count",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Idempotency key was already used for a different request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request exceeds the bounded multipart upload limit"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/assessments/{id}": {
-      "get": {
-        "tags": [
-          "assessments"
-        ],
-        "operationId": "get_by_id",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Assessment ID",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "example": "01995f3e-5d7b-7c11-8b43-123456789abc"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Assessment details, its readings, and the persisted report when processing has completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AssessmentDetails"
-                },
-                "example": {
-                  "audio_reference": "01995f3e-5d7b-7c11-8b43-123456789abe/original.webm",
-                  "completed_at": null,
-                  "created_at": "2026-09-22T10:30:00Z",
-                  "created_by": null,
-                  "id": "01995f3e-5d7b-7c11-8b43-123456789abc",
-                  "learner_reference": "learner-001",
-                  "passage_content_hash": "d9f5f3c4241f1e9d45d5d43b6f2b2df1b0c5e1a89dc97f1bb9f7e7c5c2a3d11a",
-                  "passage_id": "1",
-                  "passage_version": "1",
-                  "readings": [
-                    {
-                      "assessment_id": "01995f3e-5d7b-7c11-8b43-123456789abc",
-                      "azure_result_reference": null,
-                      "completed_at": null,
-                      "created_at": "2026-09-22T10:30:10Z",
-                      "duration_seconds": 12.3,
-                      "end_seconds": 12.3,
-                      "id": "01995f3e-5d7b-7c11-8b43-123456789abd",
-                      "media_reference": "01995f3e-5d7b-7c11-8b43-123456789abe/reading-1.wav",
-                      "reading_index": 1,
-                      "start_seconds": 0.0,
-                      "status": "PROCESSING"
-                    }
-                  ],
-                  "report": null,
-                  "required_readings": 2,
-                  "status": "PROCESSING"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Assessment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                },
-                "example": {
-                  "error": {
-                    "code": "NOT_FOUND",
-                    "message": "assessment not found"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/assessments/{id}/retry": {
-      "post": {
-        "tags": [
-          "assessments"
-        ],
-        "operationId": "retry",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Assessment ID",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "example": "01995f3e-5d7b-7c11-8b43-123456789abc"
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Failed assessment queued again, or an already active assessment returned",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Assessment"
-                },
-                "example": {
-                  "audio_reference": "01995f3e-5d7b-7c11-8b43-123456789abe/original.webm",
-                  "completed_at": null,
-                  "created_at": "2026-09-22T10:30:00Z",
-                  "created_by": null,
-                  "id": "01995f3e-5d7b-7c11-8b43-123456789abc",
-                  "learner_reference": "learner-001",
-                  "passage_content_hash": "d9f5f3c4241f1e9d45d5d43b6f2b2df1b0c5e1a89dc97f1bb9f7e7c5c2a3d11a",
-                  "passage_id": "1",
-                  "passage_version": "1",
-                  "required_readings": 2,
-                  "status": "UPLOADED"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Assessment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Assessment is not failed or already active",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
     "/api/passages": {
       "get": {
         "tags": [
@@ -711,7 +453,7 @@
     "/public/assessments/{id}/status": {
       "get": {
         "tags": [
-          "student links"
+          "assessment links"
         ],
         "operationId": "get_public_status",
         "parameters": [
@@ -765,7 +507,7 @@
     "/public/links/{token}": {
       "get": {
         "tags": [
-          "student links"
+          "assessment links"
         ],
         "operationId": "open_link",
         "parameters": [
@@ -828,7 +570,7 @@
     "/public/links/{token}/assessments": {
       "post": {
         "tags": [
-          "student links"
+          "assessment links"
         ],
         "operationId": "create_linked_assessment",
         "parameters": [
@@ -916,118 +658,6 @@
           },
           "422": {
             "description": "Consent or audio is invalid",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {}
-        ]
-      }
-    },
-    "/public/reports/{token}": {
-      "get": {
-        "tags": [
-          "student reports"
-        ],
-        "operationId": "get_public_report",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The student's report only",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AssessmentReport"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Report not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Report is not ready",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {}
-        ]
-      }
-    },
-    "/public/reports/{token}/pdf": {
-      "get": {
-        "tags": [
-          "student reports"
-        ],
-        "operationId": "get_public_report_pdf",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Printable student report",
-            "content": {
-              "application/pdf": {}
-            }
-          },
-          "404": {
-            "description": "Report not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Report is not ready",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "PDF renderer is unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -2077,39 +1707,6 @@
           }
         }
       },
-      "AssessmentDetails": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Assessment"
-          },
-          {
-            "type": "object",
-            "required": [
-              "readings"
-            ],
-            "properties": {
-              "readings": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/AssessmentReading"
-                }
-              },
-              "report": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/AssessmentReport",
-                    "description": "Report generated atomically with the completed assessment, if processing finished."
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            }
-          }
-        ],
-        "description": "Complete assessment read response with its available readings."
-      },
       "AssessmentLinkPage": {
         "type": "object",
         "required": [
@@ -2262,76 +1859,6 @@
           }
         }
       },
-      "AssessmentReading": {
-        "type": "object",
-        "description": "One clip produced by splitting the original assessment recording.",
-        "required": [
-          "id",
-          "assessment_id",
-          "reading_index",
-          "media_reference",
-          "start_seconds",
-          "end_seconds",
-          "duration_seconds",
-          "status",
-          "created_at"
-        ],
-        "properties": {
-          "assessment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "azure_result_reference": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
-          "completed_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "duration_seconds": {
-            "type": "number",
-            "format": "double"
-          },
-          "end_seconds": {
-            "type": "number",
-            "format": "double"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "media_reference": {
-            "type": "string",
-            "description": "Clip file generated by the splitter, usually normalized WAV."
-          },
-          "reading_index": {
-            "type": "integer",
-            "format": "int32",
-            "example": 1
-          },
-          "start_seconds": {
-            "type": "number",
-            "format": "double",
-            "description": "Reading boundaries in seconds relative to the original recording."
-          },
-          "status": {
-            "type": "string",
-            "description": "PREPARING while clip files are being persisted, then UPLOADED when ready.",
-            "example": "UPLOADED"
-          }
-        }
-      },
       "AssessmentReadingSummary": {
         "type": "object",
         "required": [
@@ -2386,12 +1913,6 @@
               "null"
             ]
           },
-          "report_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "status": {
             "type": "string"
           }
@@ -2433,38 +1954,6 @@
           },
           "refresh_token": {
             "type": "string"
-          }
-        }
-      },
-      "CombinedAssessRequest": {
-        "type": "object",
-        "required": [
-          "learner_reference",
-          "passage_id",
-          "passage_version",
-          "audio"
-        ],
-        "properties": {
-          "audio": {
-            "type": "string",
-            "format": "binary",
-            "description": "Original recording containing all configured readings.",
-            "example": "assessment.webm"
-          },
-          "learner_reference": {
-            "type": "string",
-            "description": "Stable internal learner identifier.",
-            "example": "learner-001"
-          },
-          "passage_id": {
-            "type": "string",
-            "description": "Stable ID of the immutable passage package.",
-            "example": "1"
-          },
-          "passage_version": {
-            "type": "string",
-            "description": "Exact immutable package version.",
-            "example": "1"
           }
         }
       },
@@ -2551,8 +2040,7 @@
         "required": [
           "assessment_id",
           "assessment_token",
-          "status",
-          "report_url"
+          "status"
         ],
         "properties": {
           "assessment_id": {
@@ -2560,9 +2048,6 @@
             "format": "uuid"
           },
           "assessment_token": {
-            "type": "string"
-          },
-          "report_url": {
             "type": "string"
           },
           "status": {
@@ -4034,11 +3519,7 @@
     },
     {
       "name": "assessment links",
-      "description": "Center-managed assessment links"
-    },
-    {
-      "name": "student links",
-      "description": "Public assessment link details"
+      "description": "Center-managed and public assessment link workflows"
     },
     {
       "name": "linked assessments",
@@ -4047,10 +3528,6 @@
     {
       "name": "assessment reports",
       "description": "Center report delivery"
-    },
-    {
-      "name": "student reports",
-      "description": "Student report delivery"
     }
   ]
 }

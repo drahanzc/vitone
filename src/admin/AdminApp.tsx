@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import {
   createAssessmentLink,
@@ -12,14 +21,16 @@ import {
   revokeCenterSession,
   writeCenterSession,
   type AssessmentLink,
+  type AssessmentListItem,
   type CenterProfile,
   type CenterSession,
   type CreateLinkRequest,
   type PassageChoice,
-  type AssessmentListItem,
 } from './admin-api'
+import { getPublicLink } from '../student-api'
 import './admin.css'
 
+// Authentication is shared by the login page and every protected admin route.
 type CenterAuthValue = {
   session: CenterSession | null
   updateSession: (session: CenterSession | null) => void
@@ -37,34 +48,66 @@ function useCenterAuth(): CenterAuthValue {
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<CenterSession | null>(() => readCenterSession())
+
   const updateSession = useCallback((next: CenterSession | null) => {
     writeCenterSession(next)
     setSession(next)
   }, [])
+
   const signIn = useCallback(async (email: string, password: string) => {
     const next = await loginCenter(email, password)
     setSession(next)
   }, [])
+
   const signOut = useCallback(async () => {
-    const current = session
-    if (!current) return
+    if (!session) return
     try {
-      const fresh = await getFreshCenterSession(current, updateSession)
-      await revokeCenterSession(fresh, updateSession)
+      const freshSession = await getFreshCenterSession(session, updateSession)
+      await revokeCenterSession(freshSession, updateSession)
     } catch {
-      // Clear the local session even when the server cannot revoke it.
+      // Local credentials must still be cleared if revocation is unavailable.
     } finally {
       updateSession(null)
     }
   }, [session, updateSession])
-  const value = useMemo(() => ({ session, updateSession, signIn, signOut }), [session, updateSession, signIn, signOut])
+
+  const value = useMemo(
+    () => ({ session, updateSession, signIn, signOut }),
+    [session, updateSession, signIn, signOut],
+  )
 
   return <CenterAuthContext.Provider value={value}>{children}</CenterAuthContext.Provider>
 }
 
-function Icon({ name }: { name: 'dashboard' | 'assessment' | 'search' | 'folder' | 'clock' | 'check' | 'arrow' | 'link' | 'close' | 'eye' }) {
-  const common = { fill: 'none', stroke: 'currentColor', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, strokeWidth: 1.7 }
-  const paths: Record<typeof name, ReactNode> = {
+type IconName =
+  | 'dashboard'
+  | 'assessment'
+  | 'search'
+  | 'folder'
+  | 'clock'
+  | 'check'
+  | 'arrow'
+  | 'link'
+  | 'close'
+  | 'eye'
+  | 'star'
+  | 'bell'
+  | 'info'
+  | 'sidebar'
+  | 'plus'
+  | 'settings'
+  | 'chevron'
+
+function Icon({ name }: { name: IconName }) {
+  const common = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    strokeWidth: 1.7,
+  }
+
+  const paths: Record<IconName, ReactNode> = {
     dashboard: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.4" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.4" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.4" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.4" /></>,
     assessment: <><path d="M4 5.5h16a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 19V7A1.5 1.5 0 0 1 4 5.5Z" /><path d="M7 3.5h10M7 10h10M7 14h6" /></>,
     search: <><circle cx="10.8" cy="10.8" r="6.4" /><path d="m15.5 15.5 5 5" /></>,
@@ -75,7 +118,15 @@ function Icon({ name }: { name: 'dashboard' | 'assessment' | 'search' | 'folder'
     link: <><path d="M10 13.8 8.7 15a4 4 0 1 1-5.7-5.7l3.2-3.2a4 4 0 0 1 5.7 0" /><path d="m14 10.2 1.3-1.3A4 4 0 1 1 21 14.6l-3.2 3.2a4 4 0 0 1-5.7 0" /><path d="m8.8 15.2 6.4-6.4" /></>,
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
     eye: <><path d="M2.5 12s3.4-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.4 5.5-9.5 5.5S2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    star: <path d="m12 3 2.7 5.7 6.3.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.3-.9L12 3Z" />,
+    bell: <><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
+    info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
+    sidebar: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></>,
+    plus: <><path d="M12 5v14M5 12h14" /></>,
+    settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19.4 15 .1.1 1.1.9-1.2 2-1.3-.5a7.8 7.8 0 0 1-1.5.9l-.2 1.4h-2.4l-.3-1.4a7.8 7.8 0 0 1-1.5-.9l-1.3.5-1.2-2 1.1-.9a7.7 7.7 0 0 1 0-1.8l-1.1-.9 1.2-2 1.3.5a7.8 7.8 0 0 1 1.5-.9l.3-1.4h2.4l.2 1.4a7.8 7.8 0 0 1 1.5.9l1.3-.5 1.2 2-1.1.9a7.7 7.7 0 0 1 0 1.8Z" transform="translate(-1 -1)" /></>,
+    chevron: <path d="m6 9 6 6 6-6" />,
   }
+
   return <svg aria-hidden="true" viewBox="0 0 24 24" {...common}>{paths[name]}</svg>
 }
 
@@ -83,6 +134,7 @@ function BrandMark() {
   return <span className="admin-brand-mark" aria-hidden="true"><img src="/assets/vitone-mark.png" alt="" /></span>
 }
 
+// Login and route protection retain the original deep-link return behavior.
 export function AdminLoginPage() {
   const { session, signIn } = useCenterAuth()
   const navigate = useNavigate()
@@ -133,7 +185,9 @@ export function AdminLoginPage() {
           <label htmlFor="center-password">Password</label>
           <input id="center-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required />
           {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
-          <button className="admin-primary-button admin-login-submit" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'} <Icon name="arrow" /></button>
+          <button className="admin-primary-button admin-login-submit" type="submit" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'} <Icon name="arrow" />
+          </button>
         </form>
         <p className="admin-login-footnote">Access is provided by your Vitone administrator.</p>
       </section>
@@ -153,42 +207,36 @@ function AdminShell() {
   const location = useLocation()
   const [profile, setProfile] = useState<CenterProfile | null>(null)
   const [profileError, setProfileError] = useState('')
-  const activePage = location.pathname.endsWith('/assessments') ? 'Assessments' : 'Dashboard'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     if (!session) return
     let active = true
-    getCenterProfile(session, updateSession).then(value => {
-      if (active) setProfile(value)
-    }).catch(cause => {
-      if (active) setProfileError(cause instanceof Error ? cause.message : 'Profile could not be loaded.')
-    })
+    setProfileError('')
+    getCenterProfile(session, updateSession)
+      .then(value => { if (active) setProfile(value) })
+      .catch(cause => {
+        if (active) setProfileError(cause instanceof Error ? cause.message : 'Profile could not be loaded.')
+      })
     return () => { active = false }
   }, [session, updateSession])
 
   const displayName = profile?.center.name || profile?.user.email || 'Center account'
   const initials = displayName.split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || 'V'
+  const activePage = location.pathname.endsWith('/assessments') ? 'Assessments' : 'Dashboard'
 
   return (
     <div className="admin-app">
-      <aside className="admin-sidebar">
-        <Link className="admin-brand" to="/admin"><BrandMark /><span>Vitone</span></Link>
-        <div className="admin-side-section-label">Workspace</div>
-        <nav className="admin-nav" aria-label="Center workspace">
-          <NavLink to="/admin" end className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}><Icon name="dashboard" /><span>Dashboard</span></NavLink>
-          <NavLink to="/admin/assessments" className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}><Icon name="assessment" /><span>Assessments</span></NavLink>
-        </nav>
-        <div className="admin-side-divider" />
-        <div className="admin-sidebar-bottom">
-          <div className="admin-profile-avatar">{initials}</div>
-          <div className="admin-profile-copy"><strong title={displayName}>{displayName}</strong><span>{profile?.user.email || 'Center workspace'}</span></div>
-          <button className="admin-signout-button" type="button" onClick={() => void signOut()} aria-label="Sign out" title="Sign out">↪</button>
-        </div>
-      </aside>
+      <AdminSidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(value => !value)}
+        displayName={displayName}
+        email={profile?.user.email}
+        initials={initials}
+        onSignOut={() => void signOut()}
+      />
       <div className="admin-main-area">
-        <header className="admin-topbar">
-          <div className="admin-breadcrumb"><Link to="/admin">Dashboard</Link><span>/</span><strong>{activePage === 'Dashboard' ? 'Overview' : activePage}</strong></div>
-        </header>
+        <AdminTopbar activePage={activePage} />
         {profileError ? <div className="admin-profile-warning" role="status">{profileError}</div> : null}
         <Outlet />
       </div>
@@ -196,14 +244,97 @@ function AdminShell() {
   )
 }
 
-function pageDate(value: string): string {
+function AdminSidebar({
+  collapsed,
+  onToggle,
+  displayName,
+  email,
+  initials,
+  onSignOut,
+}: {
+  collapsed: boolean
+  onToggle: () => void
+  displayName: string
+  email?: string
+  initials: string
+  onSignOut: () => void
+}) {
+  const toggleLabel = collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+
+  return (
+    <aside className={`admin-sidebar ${collapsed ? 'is-collapsed' : ''}`}>
+      <div className="admin-sidebar-header">
+        <Link className="admin-brand" to="/admin"><BrandMark /><span>Vitone</span></Link>
+        <button className="admin-sidebar-toggle" type="button" onClick={onToggle} aria-label={toggleLabel} aria-expanded={!collapsed} title={toggleLabel}>
+          <Icon name="sidebar" />
+        </button>
+      </div>
+      <section className="admin-sidebar-workspace" aria-label="Workspace">
+        <div className="admin-side-section-label">Workspace</div>
+        <nav className="admin-nav" aria-label="Center workspace">
+          <NavLink to="/admin" end className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}>
+            <Icon name="dashboard" /><span>Dashboard</span>
+          </NavLink>
+          <NavLink to="/admin/assessments" className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}>
+            <Icon name="assessment" /><span>Assessments</span>
+          </NavLink>
+        </nav>
+      </section>
+      <div className="admin-side-divider" />
+      <section className="admin-sidebar-starred" aria-label="Starred">
+        <div className="admin-sidebar-group-heading"><span>Starred</span><span className="admin-sidebar-add-icon" aria-hidden="true"><Icon name="plus" /></span></div>
+        <p className="admin-sidebar-empty">No starred classes yet</p>
+      </section>
+      <div className="admin-side-divider" />
+      <div className="admin-sidebar-settings" aria-label="Settings">
+        <div className="admin-sidebar-static-link"><Icon name="settings" /><span>Setting</span></div>
+      </div>
+      <div className="admin-sidebar-footer-divider" />
+      <div className="admin-sidebar-bottom">
+        <div className="admin-profile-avatar">{initials}</div>
+        <div className="admin-profile-copy"><strong title={displayName}>{displayName}</strong><span>{email || 'Center workspace'}</span></div>
+        <button className="admin-signout-button" type="button" onClick={onSignOut} aria-label="Sign out" title="Sign out"><Icon name="chevron" /></button>
+      </div>
+    </aside>
+  )
+}
+
+function AdminTopbar({ activePage }: { activePage: string }) {
+  return (
+    <header className="admin-topbar">
+      <div className="admin-breadcrumb">
+        <Icon name="star" />
+        <div className="admin-breadcrumb-trail"><Link to="/admin">Dashboards</Link><span>/</span><strong>{activePage === 'Dashboard' ? 'Default' : activePage}</strong></div>
+      </div>
+      <div className="admin-topbar-actions" aria-hidden="true"><span><Icon name="bell" /></span><span><Icon name="info" /></span></div>
+    </header>
+  )
+}
+
+function formatDate(value: string): string {
   const date = new Date(value)
-  return Number.isNaN(date.valueOf()) ? '—' : new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date)
+  if (Number.isNaN(date.valueOf())) return '—'
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
 }
 
 function statusName(status: string): string {
-  const labels: Record<string, string> = { ACTIVE: 'Active', DISABLED: 'Disabled', CREATED: 'Created', UPLOADING: 'Uploading', UPLOADED: 'Submitted', PROCESSING: 'Processing', COMPLETED: 'Completed', FAILED: 'Failed' }
-  return labels[status] || status.replaceAll('_', ' ').toLowerCase().replace(/^./, char => char.toUpperCase())
+  const knownLabels: Record<string, string> = {
+    ACTIVE: 'Active',
+    DISABLED: 'Disabled',
+    CREATED: 'Created',
+    UPLOADING: 'Uploading',
+    UPLOADED: 'Submitted',
+    PROCESSING: 'Processing',
+    COMPLETED: 'Completed',
+    FAILED: 'Failed',
+  }
+  return knownLabels[status] || status.replaceAll('_', ' ').toLowerCase().replace(/^./, char => char.toUpperCase())
 }
 
 function statusStyle(status: string): string {
@@ -223,6 +354,7 @@ async function copyText(value: string): Promise<void> {
     await navigator.clipboard.writeText(value)
     return
   }
+
   const input = document.createElement('textarea')
   input.value = value
   input.setAttribute('readonly', '')
@@ -235,34 +367,83 @@ async function copyText(value: string): Promise<void> {
   if (!copied) throw new Error('Copy is unavailable in this browser. Select and copy the link manually.')
 }
 
+function passageContextToken(link: AssessmentLink): string | null {
+  try {
+    const segments = new URL(link.share_url, window.location.origin).pathname.split('/').filter(Boolean)
+    return segments.length >= 2 && segments[segments.length - 2] === 'a'
+      ? segments[segments.length - 1] || null
+      : null
+  } catch {
+    return null
+  }
+}
+
+function passageDescription(context: string | undefined): string {
+  const firstParagraph = context?.split(/\n\s*\n/, 1)[0]?.trim()
+  if (!firstParagraph) return 'Students will read this passage aloud for assessment.'
+  const sentences = firstParagraph.match(/[^.!?]+[.!?]+/g)
+  return sentences?.slice(0, 2).join(' ').trim() || firstParagraph
+}
+
 type RecentAssessment = AssessmentListItem & { linkTitle: string }
 
-export function AdminDashboardPage() {
-  const { session, updateSession } = useCenterAuth()
-  const [passages, setPassages] = useState<PassageChoice[]>([])
-  const [links, setLinks] = useState<AssessmentLink[]>([])
-  const [recent, setRecent] = useState<RecentAssessment[]>([])
+type DashboardData = {
+  passages: PassageChoice[]
+  links: AssessmentLink[]
+  passageContexts: Record<string, string>
+  recent: RecentAssessment[]
+}
+
+function useDashboardData(
+  session: CenterSession | null,
+  updateSession: (session: CenterSession | null) => void,
+  refreshIndex: number,
+) {
+  const [data, setData] = useState<DashboardData>({ passages: [], links: [], passageContexts: {}, recent: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [refreshIndex, setRefreshIndex] = useState(0)
-  const [selectedPassage, setSelectedPassage] = useState<PassageChoice | null>(null)
-  const [copiedLinkId, setCopiedLinkId] = useState('')
-  const [now] = useState(Date.now)
+
+  const addLink = useCallback((link: AssessmentLink) => {
+    setData(current => ({
+      ...current,
+      links: [link, ...current.links.filter(item => item.id !== link.id)]
+        .sort((left, right) => right.created_at.localeCompare(left.created_at)),
+    }))
+  }, [])
 
   useEffect(() => {
     if (!session) return
     let active = true
+
     async function load() {
+      setLoading(true)
       try {
-        const [passageItems, linkItems] = await Promise.all([
+        const [passages, fetchedLinks] = await Promise.all([
           getPassages(session, updateSession),
           getAssessmentLinks(session, updateSession),
         ])
+        const links = [...fetchedLinks].sort((left, right) => right.created_at.localeCompare(left.created_at))
         if (!active) return
-        setPassages(passageItems)
-        const currentLinks = [...linkItems].sort((a, b) => b.created_at.localeCompare(a.created_at))
-        setLinks(currentLinks)
-        const assessmentPages = await Promise.all(currentLinks.slice(0, 8).map(async link => {
+        setData(current => ({ ...current, passages, links }))
+
+        const passageContextEntries = await Promise.all(passages.map(async passage => {
+          const link = links.find(item =>
+            item.passage_id === passage.passage_id
+            && item.passage_version === passage.version
+            && isShareableLink(item, Date.now()),
+          )
+          const token = link ? passageContextToken(link) : null
+          if (!token) return [passage.passage_id, ''] as const
+          try {
+            const publicLink = await getPublicLink(token)
+            return [passage.passage_id, publicLink.passage.context?.trim() || ''] as const
+          } catch {
+            return [passage.passage_id, ''] as const
+          }
+        }))
+        const contexts = Object.fromEntries(passageContextEntries)
+
+        const assessmentPages = await Promise.all(links.slice(0, 8).map(async link => {
           try {
             const page = await getLinkAssessments(link.id, session, updateSession)
             return page.items.map(item => ({ ...item, linkTitle: link.title }))
@@ -270,8 +451,12 @@ export function AdminDashboardPage() {
             return []
           }
         }))
+        const recent = assessmentPages.flat()
+          .sort((left, right) => right.created_at.localeCompare(left.created_at))
+          .slice(0, 7)
+
         if (!active) return
-        setRecent(assessmentPages.flat().sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 8))
+        setData({ passages, links, passageContexts: contexts, recent })
         setError('')
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'Dashboard data could not be loaded.')
@@ -279,21 +464,49 @@ export function AdminDashboardPage() {
         if (active) setLoading(false)
       }
     }
+
     void load()
     return () => { active = false }
   }, [session, updateSession, refreshIndex])
 
-  const totalSubmissions = links.reduce((sum, link) => sum + link.submission_count, 0)
-  const processingCount = links.reduce((sum, link) => sum + link.in_progress_count, 0)
-  const completedCount = links.reduce((sum, link) => sum + link.completed_count, 0)
-  async function copyLink(link: AssessmentLink) {
+  return { ...data, loading, error, setError, addLink }
+}
+
+function useCopyAssessmentLink(setError: (message: string) => void) {
+  const [copiedLinkId, setCopiedLinkId] = useState('')
+
+  const copyLink = useCallback(async (link: AssessmentLink) => {
     try {
       await copyText(link.share_url)
       setCopiedLinkId(link.id)
-      window.setTimeout(() => setCopiedLinkId(current => current === link.id ? '' : current), 1800)
+      window.setTimeout(() => {
+        setCopiedLinkId(current => current === link.id ? '' : current)
+      }, 1800)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The link could not be copied.')
     }
+  }, [setError])
+
+  return { copiedLinkId, copyLink }
+}
+
+export function AdminDashboardPage() {
+  const { session, updateSession } = useCenterAuth()
+  const [refreshIndex, setRefreshIndex] = useState(0)
+  const [selectedPassage, setSelectedPassage] = useState<PassageChoice | null>(null)
+  const data = useDashboardData(session, updateSession, refreshIndex)
+  const { copiedLinkId, copyLink } = useCopyAssessmentLink(data.setError)
+  const [now] = useState(Date.now)
+
+  const totalSubmissions = data.links.reduce((sum, link) => sum + link.submission_count, 0)
+  const processingCount = data.links.reduce((sum, link) => sum + link.in_progress_count, 0)
+  const completedCount = data.links.reduce((sum, link) => sum + link.completed_count, 0)
+  const activeLinks = data.links.filter(link => link.status === 'ACTIVE').length
+
+  function handleCreated(link: AssessmentLink) {
+    // Update the visible row immediately; the refresh also brings in fresh counts.
+    data.addLink(link)
+    setRefreshIndex(index => index + 1)
   }
 
   return (
@@ -301,73 +514,147 @@ export function AdminDashboardPage() {
       <section className="admin-page-heading">
         <div><h1>Dashboard</h1><p>Create and share reading assessments, and follow up on student results.</p></div>
       </section>
-
-      {error ? <div className="admin-error-banner" role="alert">{error}</div> : null}
+      {data.error ? <div className="admin-error-banner" role="alert">{data.error}</div> : null}
 
       <section className="admin-overview-cards" aria-label="Submission overview">
-        <MetricCard label="Total submissions" value={loading ? '—' : String(totalSubmissions)} icon="folder" tone="blue" />
-        <MetricCard label="Processing" value={loading ? '—' : String(processingCount)} icon="clock" tone="cyan" />
-        <MetricCard label="Completed" value={loading ? '—' : String(completedCount)} icon="check" tone="green" />
+        <MetricCard label="Total submissions" value={data.loading ? '—' : String(totalSubmissions)} icon="submissions" />
+        <MetricCard label="Processing" value={data.loading ? '—' : String(processingCount)} icon="processing" />
+        <MetricCard label="Completed" value={data.loading ? '—' : String(completedCount)} icon="completed" />
       </section>
 
       <section className="admin-dashboard-columns">
         <div className="admin-library-panel admin-panel">
-          <div className="admin-panel-heading"><div><h2>Assessment Library</h2></div><Link to="/admin/assessments" className="admin-text-link">View all <Icon name="arrow" /></Link></div>
-          {loading ? <div className="admin-skeleton-card" aria-label="Loading passages" /> : passages.length ? (
+          <div className="admin-panel-heading">
+            <div><h2>Assessment Library</h2></div>
+            <Link to="/admin/assessments" className="admin-text-link">View all <Icon name="arrow" /></Link>
+          </div>
+          {data.loading ? <div className="admin-skeleton-card" aria-label="Loading passages" /> : data.passages.length ? (
             <div className="admin-passage-list">
-              {passages.map(passage => {
-                const existingLink = links.find(link => link.passage_id === passage.passage_id && link.passage_version === passage.version && isShareableLink(link, now))
-                return <article className="admin-passage-card" key={`${passage.passage_id}-${passage.version}`}>
-                  <img className="admin-passage-art" src="/assets/new-apartment.png" alt="" />
-                  <div className="admin-passage-copy"><h3>{passage.title}</h3><p>Students will read this passage aloud for assessment.</p><small>{passage.word_count} words{existingLink ? ` · ${existingLink.required_readings} required ${existingLink.required_readings === 1 ? 'reading' : 'readings'}` : ''}</small></div>
-                    <div className="admin-passage-actions">
-                      {existingLink ? <><a className="admin-outline-button admin-passage-secondary" href={existingLink.share_url} target="_blank" rel="noreferrer">Preview assessment <Icon name="eye" /></a><button className="admin-primary-button admin-passage-create" type="button" onClick={() => void copyLink(existingLink)}><span>{copiedLinkId === existingLink.id ? 'Copied' : 'Copy Link'}</span><Icon name="link" /></button></> : <button className="admin-primary-button admin-passage-create" type="button" onClick={() => setSelectedPassage(passage)}>Create Link <Icon name="link" /></button>}
+              {data.passages.map(passage => {
+                const existingLink = data.links.find(link =>
+                  link.passage_id === passage.passage_id
+                  && link.passage_version === passage.version
+                  && isShareableLink(link, now),
+                )
+                return (
+                  <article className="admin-passage-card" key={`${passage.passage_id}-${passage.version}`}>
+                    <div className="admin-passage-media">
+                      <img className="admin-passage-art" src="/assets/new-apartment.png" alt="" />
+                      {existingLink ? (
+                        <a className="admin-outline-button admin-passage-secondary" href={existingLink.share_url} target="_blank" rel="noreferrer">
+                          Preview assessment <Icon name="eye" />
+                        </a>
+                      ) : null}
                     </div>
-                </article>
+                    <div className="admin-passage-content">
+                      <div className="admin-passage-copy">
+                        <h3>{passage.title}</h3>
+                        <p>{passageDescription(data.passageContexts[passage.passage_id])}</p>
+                        <small>{passage.word_count} words{existingLink ? ` · ${existingLink.required_readings} required ${existingLink.required_readings === 1 ? 'reading' : 'readings'}` : ''}</small>
+                      </div>
+                      <div className="admin-passage-actions">
+                        {existingLink ? (
+                          <button className="admin-primary-button admin-passage-create" type="button" onClick={() => void copyLink(existingLink)}>
+                            <span>{copiedLinkId === existingLink.id ? 'Copied' : 'Copy Link'}</span><Icon name="link" />
+                          </button>
+                        ) : (
+                          <button className="admin-primary-button admin-passage-create" type="button" onClick={() => setSelectedPassage(passage)}>
+                            Create Link <Icon name="link" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                )
               })}
             </div>
-          ) : <div className="admin-empty-state"><Icon name="folder" /><h3>No passages available</h3><p>Passage packages need to be seeded before your center can create links.</p></div>}
+          ) : (
+            <div className="admin-empty-state"><Icon name="folder" /><h3>No passages available</h3><p>Passage packages need to be seeded before your center can create links.</p></div>
+          )}
         </div>
 
         <aside className="admin-share-panel">
-          <div className="admin-share-copy"><span className="admin-eyebrow">READY TO SHARE</span><h2>{links.filter(link => link.status === 'ACTIVE').length} active assessment {links.filter(link => link.status === 'ACTIVE').length === 1 ? 'link' : 'links'}</h2><p>Share a link with your students so they can complete their reading assessment.</p><Link to="/admin/assessments" className="admin-share-link">View assessments <Icon name="arrow" /></Link></div>
-          <div className="admin-share-mascot" aria-hidden="true"><span className="admin-mascot-glow" /><span className="admin-mascot-core"><img src="/assets/mascot-gloss.svg" alt="" /><img src="/assets/mascot-eye.svg" alt="" /><img src="/assets/mascot-eye-alt.svg" alt="" /></span></div>
+          <div className="admin-share-copy">
+            <span className="admin-eyebrow">READY TO SHARE</span>
+            <h2>{activeLinks} active assessment {activeLinks === 1 ? 'link' : 'links'}</h2>
+            <p>Share a link with your students so they can complete their reading assessment.</p>
+            <Link to="/admin/assessments" className="admin-share-link">View assessments <Icon name="arrow" /></Link>
+          </div>
+          <div className="admin-share-mascot" aria-hidden="true"><span className="admin-mascot-glow" /><span className="admin-mascot-core"><span className="admin-mascot-eye" /><span className="admin-mascot-eye" /></span></div>
         </aside>
       </section>
 
-      <section className="admin-recent-section">
-        <div className="admin-recent-heading"><h2>Recent Assessment</h2><Link to="/admin/assessments" className="admin-text-link">View all assessments <Icon name="arrow" /></Link></div>
-        <div className="admin-recent-panel admin-panel">
-          <div className="admin-table-scroll"><table className="admin-table">
-            <thead><tr><th>Student</th><th>Assessment</th><th>Submitted at</th><th>Status</th><th>Result</th></tr></thead>
-            <tbody>
-              {loading ? <tr><td colSpan={5} className="admin-table-message">Loading submissions…</td></tr> : recent.length ? recent.map(item => (
-                <tr key={item.id}><td><div className="admin-student-cell"><strong>{item.learner_reference}</strong></div></td><td>{item.linkTitle}</td><td>{pageDate(item.completed_at || item.created_at)}</td><td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td><td><span className="admin-result-text">{item.headline.length ? item.headline.join(' · ') : item.status === 'COMPLETED' ? 'Report ready' : '—'}</span></td></tr>
-              )) : <tr><td colSpan={5} className="admin-table-message">No student submissions yet. Share an assessment link to get started.</td></tr>}
-            </tbody>
-          </table></div>
-        </div>
-      </section>
-      {selectedPassage ? <CreateLinkDialog passage={selectedPassage} existingLinkCount={links.filter(link => link.passage_id === selectedPassage.passage_id).length} onClose={() => setSelectedPassage(null)} onCreated={created => { setLinks(current => [created, ...current.filter(link => link.id !== created.id)].sort((a, b) => b.created_at.localeCompare(a.created_at))); setRefreshIndex(value => value + 1) }} /> : null}
+      <RecentAssessments items={data.recent} loading={data.loading} />
+      {selectedPassage ? (
+        <CreateLinkDialog
+          passage={selectedPassage}
+          existingLinkCount={data.links.filter(link => link.passage_id === selectedPassage.passage_id).length}
+          onClose={() => setSelectedPassage(null)}
+          onCreated={handleCreated}
+        />
+      ) : null}
     </main>
   )
 }
 
-function MetricCard({ label, value, icon, tone }: { label: string; value: string; icon: 'folder' | 'clock' | 'check'; tone: 'blue' | 'cyan' | 'green' }) {
-  return <article className="admin-metric-card"><div className="admin-metric-label"><span>{label}</span><span className={`admin-metric-icon is-${tone}`}><Icon name={icon} /></span></div><strong>{value}</strong></article>
+const metricIconAssets = {
+  submissions: '/assets/admin-metric-icons/submissions.svg',
+  processing: '/assets/admin-metric-icons/processing.svg',
+  completed: '/assets/admin-metric-icons/completed.svg',
+} as const
+
+function MetricCard({ label, value, icon }: { label: string; value: string; icon: keyof typeof metricIconAssets }) {
+  return (
+    <article className="admin-metric-card">
+      <div className="admin-metric-label">
+        <span>{label}</span>
+        <span className="admin-metric-icon" aria-hidden="true"><img src={metricIconAssets[icon]} alt="" /></span>
+      </div>
+      <strong>{value}</strong>
+    </article>
+  )
 }
 
-function dateInputDefault(): string {
+function RecentAssessments({ items, loading }: { items: RecentAssessment[]; loading: boolean }) {
+  return (
+    <section className="admin-recent-section">
+      <div className="admin-recent-heading">
+        <h2>Recent Assessment</h2>
+        <Link to="/admin/assessments" className="admin-text-link">View all assessments <Icon name="arrow" /></Link>
+      </div>
+      <div className="admin-recent-panel admin-panel">
+        <div className="admin-table-scroll">
+          <table className="admin-table">
+            <thead><tr><th>Student</th><th>Assessment</th><th>Submitted at</th><th>Status</th><th>Result</th></tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={5} className="admin-table-message">Loading submissions…</td></tr> : items.length ? items.map(item => (
+                <tr key={item.id}>
+                  <td><div className="admin-student-cell"><strong>{item.learner_reference}</strong></div></td>
+                  <td>{item.linkTitle}</td>
+                  <td>{formatDate(item.completed_at || item.created_at)}</td>
+                  <td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td>
+                  <td><span className="admin-result-text">{item.headline.length ? item.headline.join(' · ') : item.status === 'COMPLETED' ? 'Report ready' : '—'}</span></td>
+                </tr>
+              )) : <tr><td colSpan={5} className="admin-table-message">No student submissions yet. Share an assessment link to get started.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function defaultExpiryDate(): string {
   const date = new Date()
   date.setDate(date.getDate() + 30)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return formatDateInput(date)
 }
 
-function dateInputToday(): string {
-  const date = new Date()
+function todayDate(): string {
+  return formatDateInput(new Date())
+}
+
+function formatDateInput(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -379,11 +666,21 @@ function linkExpiry(value: string): string {
   return new Date(year, month - 1, day, 23, 59, 59).toISOString()
 }
 
-function CreateLinkDialog({ passage, existingLinkCount, onClose, onCreated }: { passage: PassageChoice; existingLinkCount: number; onClose: () => void; onCreated: (link: AssessmentLink) => void }) {
+function CreateLinkDialog({
+  passage,
+  existingLinkCount,
+  onClose,
+  onCreated,
+}: {
+  passage: PassageChoice
+  existingLinkCount: number
+  onClose: () => void
+  onCreated: (link: AssessmentLink) => void
+}) {
   const { session, updateSession } = useCenterAuth()
   const [title, setTitle] = useState(`${passage.title} Assessment${existingLinkCount ? ` ${existingLinkCount + 1}` : ''}`)
-  const [expiresAt, setExpiresAt] = useState(dateInputDefault)
-  const [minimumExpiryDate] = useState(dateInputToday)
+  const [expiresAt, setExpiresAt] = useState(defaultExpiryDate)
+  const [minimumExpiryDate] = useState(todayDate)
   const [maxSubmissions, setMaxSubmissions] = useState('40')
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const [created, setCreated] = useState<AssessmentLink | null>(null)
@@ -400,11 +697,13 @@ function CreateLinkDialog({ passage, existingLinkCount, onClose, onCreated }: { 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!session) return
+
     const limit = maxSubmissions.trim() === '' ? null : Number(maxSubmissions)
     if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > 5000)) {
       setError('Enter a submission limit between 1 and 5,000, or leave it blank for no limit.')
       return
     }
+
     setBusy(true)
     setError('')
     try {
@@ -414,11 +713,11 @@ function CreateLinkDialog({ passage, existingLinkCount, onClose, onCreated }: { 
         expires_at: expiresAt ? linkExpiry(expiresAt) : null,
         max_submissions: limit,
       }
-      const result = await createAssessmentLink(input, idempotencyKey, session, updateSession)
-      setCreated(result)
-      onCreated(result)
+      const link = await createAssessmentLink(input, idempotencyKey, session, updateSession)
+      setCreated(link)
+      onCreated(link)
       try {
-        await copyText(result.share_url)
+        await copyText(link.share_url)
         setCopied(true)
       } catch {
         setCopied(false)
@@ -446,32 +745,48 @@ function CreateLinkDialog({ passage, existingLinkCount, onClose, onCreated }: { 
     <div className="admin-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose() }}>
       <section className="admin-create-dialog" role="dialog" aria-modal="true" aria-labelledby="create-link-title">
         <button className="admin-dialog-close" type="button" onClick={onClose} aria-label="Close" disabled={busy}><Icon name="close" /></button>
-        {!created ? <>
-          <span className="admin-eyebrow">ASSESSMENT LIBRARY</span>
-          <h2 id="create-link-title">Create an assessment link</h2>
-          <p className="admin-dialog-intro">Set up a student link for <strong>{passage.title}</strong>.</p>
-          <form className="admin-create-form" onSubmit={submit}>
-            <label htmlFor="assessment-title">Assessment name</label>
-            <input id="assessment-title" value={title} onChange={event => { setTitle(event.target.value); markEdited() }} maxLength={120} required disabled={busy} />
-            <div className="admin-form-two-columns">
-              <div><label htmlFor="assessment-expiry">Link expires</label><input id="assessment-expiry" type="date" value={expiresAt} min={minimumExpiryDate} onChange={event => { setExpiresAt(event.target.value); markEdited() }} disabled={busy} /></div>
-              <div><label htmlFor="assessment-limit">Submission limit</label><input id="assessment-limit" type="number" min={1} max={5000} value={maxSubmissions} onChange={event => { setMaxSubmissions(event.target.value); markEdited() }} placeholder="No limit" disabled={busy} /></div>
-            </div>
-            <div className="admin-form-note"><span><Icon name="clock" /></span><p>This assessment uses <strong>{passage.word_count} words</strong>. The required number of readings is set by your assessment configuration.</p></div>
+        {!created ? (
+          <>
+            <span className="admin-eyebrow">ASSESSMENT LIBRARY</span>
+            <h2 id="create-link-title">Create an assessment link</h2>
+            <p className="admin-dialog-intro">Set up a student link for <strong>{passage.title}</strong>.</p>
+            <form className="admin-create-form" onSubmit={submit}>
+              <label htmlFor="assessment-title">Assessment name</label>
+              <input id="assessment-title" value={title} onChange={event => { setTitle(event.target.value); markEdited() }} maxLength={120} required disabled={busy} />
+              <div className="admin-form-two-columns">
+                <div>
+                  <label htmlFor="assessment-expiry">Link expires</label>
+                  <input id="assessment-expiry" type="date" value={expiresAt} min={minimumExpiryDate} onChange={event => { setExpiresAt(event.target.value); markEdited() }} disabled={busy} />
+                </div>
+                <div>
+                  <label htmlFor="assessment-limit">Submission limit</label>
+                  <input id="assessment-limit" type="number" min={1} max={5000} value={maxSubmissions} onChange={event => { setMaxSubmissions(event.target.value); markEdited() }} placeholder="No limit" disabled={busy} />
+                </div>
+              </div>
+              <div className="admin-form-note"><span><Icon name="clock" /></span><p>This assessment uses <strong>{passage.word_count} words</strong>. The required number of readings is set by your assessment configuration.</p></div>
+              {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
+              <div className="admin-dialog-actions">
+                <button className="admin-outline-button" type="button" onClick={onClose} disabled={busy}>Cancel</button>
+                <button className="admin-primary-button" type="submit" disabled={busy || !title.trim()}>{busy ? 'Creating…' : 'Create and copy link'} <Icon name="link" /></button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            <span className="admin-created-check"><Icon name="check" /></span>
+            <span className="admin-eyebrow">LINK READY</span>
+            <h2 id="create-link-title">Your assessment link is ready</h2>
+            <p className="admin-dialog-intro">{created.title} · {created.required_readings} required {created.required_readings === 1 ? 'reading' : 'readings'}</p>
+            <label className="admin-share-url-label" htmlFor="created-share-url">Share this link with your students</label>
+            <input className="admin-share-url-input" id="created-share-url" readOnly value={created.share_url} onFocus={event => event.currentTarget.select()} />
+            <p className={`admin-copy-feedback ${copied ? 'is-visible' : ''}`} role="status">{copied ? 'Copied to clipboard.' : 'Copy the link, or select it above.'}</p>
             {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
-            <div className="admin-dialog-actions"><button className="admin-outline-button" type="button" onClick={onClose} disabled={busy}>Cancel</button><button className="admin-primary-button" type="submit" disabled={busy || !title.trim()}>{busy ? 'Creating…' : 'Create and copy link'} <Icon name="link" /></button></div>
-          </form>
-        </> : <>
-          <span className="admin-created-check"><Icon name="check" /></span>
-          <span className="admin-eyebrow">LINK READY</span>
-          <h2 id="create-link-title">Your assessment link is ready</h2>
-          <p className="admin-dialog-intro">{created.title} · {created.required_readings} required {created.required_readings === 1 ? 'reading' : 'readings'}</p>
-          <label className="admin-share-url-label" htmlFor="created-share-url">Share this link with your students</label>
-          <input className="admin-share-url-input" id="created-share-url" readOnly value={created.share_url} onFocus={event => event.currentTarget.select()} />
-          <p className={`admin-copy-feedback ${copied ? 'is-visible' : ''}`} role="status">{copied ? 'Copied to clipboard.' : 'Copy the link, or select it above.'}</p>
-          {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
-          <div className="admin-dialog-actions"><button className="admin-outline-button" type="button" onClick={onClose}>Done</button><button className="admin-primary-button" type="button" onClick={() => void copyCreatedLink()}><Icon name="link" /> Copy Link</button></div>
-        </>}
+            <div className="admin-dialog-actions">
+              <button className="admin-outline-button" type="button" onClick={onClose}>Done</button>
+              <button className="admin-primary-button" type="button" onClick={() => void copyCreatedLink()}><Icon name="link" /> Copy Link</button>
+            </div>
+          </>
+        )}
       </section>
     </div>
   )
@@ -486,56 +801,132 @@ export function AdminAssessmentsPage() {
   const [refreshIndex, setRefreshIndex] = useState(0)
   const [selectedPassage, setSelectedPassage] = useState<PassageChoice | null>(null)
   const [selectedPassageId, setSelectedPassageId] = useState('')
-  const [copiedLinkId, setCopiedLinkId] = useState('')
   const [query, setQuery] = useState('')
   const [now] = useState(Date.now)
+  const { copiedLinkId, copyLink } = useCopyAssessmentLink(setError)
 
   useEffect(() => {
     if (!session) return
     let active = true
-    Promise.all([getPassages(session, updateSession), getAssessmentLinks(session, updateSession)]).then(([passageItems, items]) => {
-      if (!active) return
-      setPassages(passageItems)
-      setLinks([...items].sort((a, b) => b.created_at.localeCompare(a.created_at)))
-      setSelectedPassageId(current => current || passageItems[0]?.passage_id || '')
-      setError('')
-    }).catch(cause => {
-      if (active) setError(cause instanceof Error ? cause.message : 'Assessments could not be loaded.')
-    }).finally(() => {
-      if (active) setLoading(false)
-    })
+    Promise.all([getPassages(session, updateSession), getAssessmentLinks(session, updateSession)])
+      .then(([passageItems, fetchedLinks]) => {
+        if (!active) return
+        setPassages(passageItems)
+        setLinks([...fetchedLinks].sort((left, right) => right.created_at.localeCompare(left.created_at)))
+        setSelectedPassageId(current => current || passageItems[0]?.passage_id || '')
+        setError('')
+      })
+      .catch(cause => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Assessments could not be loaded.')
+      })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [session, updateSession, refreshIndex])
 
-  const visible = links.filter(link => `${link.title} ${link.passage_id} ${link.status}`.toLowerCase().includes(query.toLowerCase()))
+  const visibleLinks = links.filter(link =>
+    `${link.title} ${link.passage_id} ${link.status}`.toLowerCase().includes(query.toLowerCase()),
+  )
 
-  async function copyLink(link: AssessmentLink) {
-    try {
-      await copyText(link.share_url)
-      setCopiedLinkId(link.id)
-      window.setTimeout(() => setCopiedLinkId(current => current === link.id ? '' : current), 1800)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The link could not be copied.')
-    }
+  function handleCreated(link: AssessmentLink) {
+    setLinks(current => [link, ...current.filter(item => item.id !== link.id)]
+      .sort((left, right) => right.created_at.localeCompare(left.created_at)))
+    setRefreshIndex(index => index + 1)
   }
+
+  const selectedPassageCount = selectedPassage
+    ? links.filter(link => link.passage_id === selectedPassage.passage_id).length
+    : 0
 
   return (
     <main className="admin-page admin-assessments-page">
-      <section className="admin-page-heading"><div><h1>Assessments</h1><p>Create and manage links shared with your students.</p></div><div className="admin-heading-actions">{passages.length > 1 ? <label className="visually-hidden" htmlFor="assessment-passage-select">Passage</label> : null}{passages.length > 1 ? <select id="assessment-passage-select" className="admin-passage-selector" value={selectedPassageId || passages[0].passage_id} onChange={event => setSelectedPassageId(event.target.value)}>{passages.map(passage => <option value={passage.passage_id} key={passage.passage_id}>{passage.title}</option>)}</select> : null}<button className="admin-primary-button" type="button" onClick={() => { const passage = passages.find(item => item.passage_id === selectedPassageId) || passages[0]; if (passage) setSelectedPassage(passage) }} disabled={!passages.length}>Create assessment <Icon name="arrow" /></button></div></section>
-      {error ? <div className="admin-error-banner" role="alert">{error}</div> : null}
-      <section className="admin-links-panel admin-panel">
-        <div className="admin-links-toolbar"><div><h2>Assessment links</h2><p>{links.length} links created</p></div><label className="admin-search"><Icon name="search" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search assessment links" /></label></div>
-        <div className="admin-table-scroll"><table className="admin-table admin-links-table">
-          <thead><tr><th>Assessment</th><th>Passage</th><th>Created</th><th>Submissions</th><th>Status</th><th>Share link</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={6} className="admin-table-message">Loading assessment links…</td></tr> : visible.length ? visible.map(link => {
-              const passageTitle = passages.find(passage => passage.passage_id === link.passage_id)?.title || `Passage ${link.passage_id}`
-              return <tr key={link.id}><td><strong>{link.title}</strong><small className="admin-table-subtitle">{link.required_readings} required {link.required_readings === 1 ? 'reading' : 'readings'}</small></td><td>{passageTitle}<small className="admin-table-subtitle">Version {link.passage_version}</small></td><td>{pageDate(link.created_at)}</td><td>{link.submission_count}{link.max_submissions ? ` / ${link.max_submissions}` : ''}<small className="admin-table-subtitle">{link.completed_count} completed · {link.in_progress_count} in progress</small></td><td><span className={`admin-status ${statusStyle(link.status)}`}><i />{statusName(link.status)}{isShareableLink(link, now) ? '' : link.status === 'ACTIVE' ? ' · unavailable' : ''}</span></td><td><div className="admin-link-url-cell"><a href={link.share_url} target="_blank" rel="noreferrer" title={link.share_url}>{link.share_url}</a><button className="admin-copy-row-button" type="button" onClick={() => void copyLink(link)}><Icon name="link" />{copiedLinkId === link.id ? 'Copied' : 'Copy'}</button></div></td></tr>
-            }) : <tr><td colSpan={6} className="admin-table-message">{query ? 'No links match your search.' : 'No assessment links yet. Create one to share with your students.'}</td></tr>}
-          </tbody>
-        </table></div>
+      <section className="admin-page-heading">
+        <div><h1>Assessments</h1><p>Create and manage links shared with your students.</p></div>
+        <div className="admin-heading-actions">
+          {passages.length > 1 ? (
+            <>
+              <label className="visually-hidden" htmlFor="assessment-passage-select">Passage</label>
+              <select id="assessment-passage-select" className="admin-passage-selector" value={selectedPassageId || passages[0].passage_id} onChange={event => setSelectedPassageId(event.target.value)}>
+                {passages.map(passage => <option value={passage.passage_id} key={passage.passage_id}>{passage.title}</option>)}
+              </select>
+            </>
+          ) : null}
+          <button
+            className="admin-primary-button"
+            type="button"
+            disabled={!passages.length}
+            onClick={() => {
+              const passage = passages.find(item => item.passage_id === selectedPassageId) || passages[0]
+              if (passage) setSelectedPassage(passage)
+            }}
+          >Create assessment <Icon name="arrow" /></button>
+        </div>
       </section>
-      {selectedPassage ? <CreateLinkDialog passage={selectedPassage} existingLinkCount={links.filter(link => link.passage_id === selectedPassage.passage_id).length} onClose={() => setSelectedPassage(null)} onCreated={created => { setLinks(current => [created, ...current.filter(link => link.id !== created.id)].sort((a, b) => b.created_at.localeCompare(a.created_at))); setRefreshIndex(value => value + 1) }} /> : null}
+      {error ? <div className="admin-error-banner" role="alert">{error}</div> : null}
+
+      <section className="admin-links-panel admin-panel">
+        <div className="admin-links-toolbar">
+          <div><h2>Assessment links</h2><p>{links.length} links created</p></div>
+          <label className="admin-search"><Icon name="search" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search assessment links" /></label>
+        </div>
+        <div className="admin-table-scroll">
+          <table className="admin-table admin-links-table">
+            <thead><tr><th>Assessment</th><th>Passage</th><th>Created</th><th>Submissions</th><th>Status</th><th>Share link</th></tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={6} className="admin-table-message">Loading assessment links…</td></tr> : visibleLinks.length ? visibleLinks.map(link => (
+                <AssessmentLinkRow
+                  key={link.id}
+                  link={link}
+                  passageTitle={passages.find(passage => passage.passage_id === link.passage_id)?.title || `Passage ${link.passage_id}`}
+                  now={now}
+                  copied={copiedLinkId === link.id}
+                  onCopy={() => void copyLink(link)}
+                />
+              )) : (
+                <tr><td colSpan={6} className="admin-table-message">{query ? 'No links match your search.' : 'No assessment links yet. Create one to share with your students.'}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {selectedPassage ? (
+        <CreateLinkDialog
+          passage={selectedPassage}
+          existingLinkCount={selectedPassageCount}
+          onClose={() => setSelectedPassage(null)}
+          onCreated={handleCreated}
+        />
+      ) : null}
     </main>
+  )
+}
+
+function AssessmentLinkRow({
+  link,
+  passageTitle,
+  now,
+  copied,
+  onCopy,
+}: {
+  link: AssessmentLink
+  passageTitle: string
+  now: number
+  copied: boolean
+  onCopy: () => void
+}) {
+  const unavailable = !isShareableLink(link, now) && link.status === 'ACTIVE'
+  return (
+    <tr>
+      <td><strong>{link.title}</strong><small className="admin-table-subtitle">{link.required_readings} required {link.required_readings === 1 ? 'reading' : 'readings'}</small></td>
+      <td>{passageTitle}<small className="admin-table-subtitle">Version {link.passage_version}</small></td>
+      <td>{formatDate(link.created_at)}</td>
+      <td>{link.submission_count}{link.max_submissions ? ` / ${link.max_submissions}` : ''}<small className="admin-table-subtitle">{link.completed_count} completed · {link.in_progress_count} in progress</small></td>
+      <td><span className={`admin-status ${statusStyle(link.status)}`}><i />{statusName(link.status)}{unavailable ? ' · unavailable' : ''}</span></td>
+      <td>
+        <div className="admin-link-url-cell">
+          <a href={link.share_url} target="_blank" rel="noreferrer" title={link.share_url}>{link.share_url}</a>
+          <button className="admin-copy-row-button" type="button" onClick={onCopy}><Icon name="link" />{copied ? 'Copied' : 'Copy'}</button>
+        </div>
+      </td>
+    </tr>
   )
 }

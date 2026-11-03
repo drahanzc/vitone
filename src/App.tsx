@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import './App.css'
 import {
@@ -23,7 +23,7 @@ import {
   type StudentReport,
 } from './student-api'
 
-type FlowView = 'overview' | 'instructions' | 'record' | 'review' | 'submitted'
+type FlowView = 'overview' | 'preview' | 'record' | 'review' | 'submitted'
 type RecordingState = 'idle' | 'recording' | 'paused'
 type ReportTab = 'overview' | 'sounds' | 'intonation' | 'stress'
 
@@ -35,6 +35,13 @@ function formatTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0')
   const remainder = Math.floor(seconds % 60).toString().padStart(2, '0')
   return `${minutes}:${remainder}`
+}
+
+function assessmentTokenFromInput(value: string): string | undefined {
+  const segments = value.trim().split('/').filter(Boolean)
+  const assessmentIndex = segments.lastIndexOf('a')
+  const token = assessmentIndex >= 0 ? segments[assessmentIndex + 1] : segments.at(-1)
+  return token || undefined
 }
 
 function errorMessage(error: unknown): string {
@@ -52,10 +59,8 @@ function Brand() {
   )
 }
 
-function StudentHeader({ activeStep, readingNumber, totalReadings }: {
+function StudentHeader({ activeStep }: {
   activeStep: 1 | 2 | 3
-  readingNumber?: number
-  totalReadings?: number
 }) {
   return (
     <header className="student-header">
@@ -71,10 +76,6 @@ function StudentHeader({ activeStep, readingNumber, totalReadings }: {
           )
         })}
       </nav>
-      <div className="header-note" title="Your audio is used to prepare your pronunciation assessment.">i</div>
-      {readingNumber && totalReadings ? (
-        <div className="reading-counter">Reading {readingNumber} of {totalReadings}</div>
-      ) : null}
     </header>
   )
 }
@@ -111,7 +112,7 @@ function HomePage() {
 
   function openAssessment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const token = value.trim().split('/').filter(Boolean).at(-1)
+    const token = assessmentTokenFromInput(value)
     if (token) navigate(`/a/${encodeURIComponent(token)}`)
   }
 
@@ -143,12 +144,13 @@ function passageSentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+/).map(sentence => sentence.trim()).filter(Boolean)
 }
 
-function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPreview, onAdvanceToSecond, onCompleteSecond }: {
+function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPreview, onBack, onAdvanceToSecond, onCompleteSecond }: {
   link: PublicLink
   view: FlowView
   readingNumber: number
   secondReadingComplete: boolean
   onPreview: () => void
+  onBack: () => void
   onAdvanceToSecond: () => void
   onCompleteSecond: () => void
 }) {
@@ -189,19 +191,31 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPrev
   }, [readingNumber])
 
   if (view === 'overview') {
-    const preview = link.passage.text.length > 700
-      ? `${link.passage.text.slice(0, 700).trim()}…`
-      : link.passage.text
     return (
       <section className="passage-card" aria-labelledby="passage-title">
         <img className="passage-art" src={PASSAGE_ART} alt="Illustration of a bright new apartment" />
         <div className="passage-summary">
-          <h1 id="passage-title">{link.passage.title}</h1>
-          <span className="context-pill">Reading Passage</span>
-          {context ? <div className="passage-context"><h2>About this passage</h2><p>{context}</p></div> : null}
-          <p>{preview}</p>
-          <p className="passage-guidance">Read the context first, then review the passage before recording.</p>
-          <button className="text-button" onClick={onPreview}>Read recording instructions <span aria-hidden="true">→</span></button>
+          <div className="passage-summary-copy">
+            <h1 id="passage-title">{link.passage.title}</h1>
+            <span className="context-pill context-pill-reading">Reading Context</span>
+            {context ? <p className="passage-context-copy">{context}</p> : null}
+          </div>
+          <button className="text-button" onClick={onPreview}>Preview the passage <span aria-hidden="true">→</span></button>
+        </div>
+      </section>
+    )
+  }
+
+  if (view === 'preview') {
+    return (
+      <section className="preview-card" aria-labelledby="preview-title">
+        <div className="preview-card-top">
+          <button className="back-link" type="button" onClick={onBack}><span aria-hidden="true">←</span>Back</button>
+          <span className="context-pill">Preview Passage</span>
+        </div>
+        <div className="preview-copy">
+          <h1 id="preview-title">{link.passage.title}</h1>
+          <p>{link.passage.text}</p>
         </div>
       </section>
     )
@@ -211,7 +225,6 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPrev
     <section className="reading-card" aria-label="Reading passage">
       <div className="reading-card-top">
         <span className="context-pill">Reading Passage</span>
-        <span className="reading-label">{link.passage.title}</span>
       </div>
       <div
         className="sentence-list"
@@ -226,9 +239,9 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPrev
         }}
         onKeyDown={event => { if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) scrollIntentRef.current = true }}
       >
-        {[1, 2].map(copy => (
+        {Array.from({ length: TOTAL_READINGS }, (_, index) => index + 1).map(copy => (
           <section className="reading-copy" key={copy} ref={copy === 1 ? firstReadingRef : secondReadingRef}>
-            <h2>Reading {copy}</h2>
+            <h2 className="visually-hidden">Reading {copy}</h2>
             {passageSentences(link.passage.text).map((sentence, index) => (
               <div className={`sentence-row ${copy === readingNumber && index === 0 ? 'sentence-current' : ''}`} key={`${copy}-${index}-${sentence.slice(0, 24)}`}>
                 <span className="sentence-number">{String(index + 1).padStart(2, '0')}</span>
@@ -251,30 +264,7 @@ function PassagePanel({ link, view, readingNumber, secondReadingComplete, onPrev
           </section>
         ))}
       </div>
-      <p className="reading-help">One recording captures both readings. Move to the second copy when you’re ready; pause or take a break at any time.</p>
     </section>
-  )
-}
-
-function InstructionsScreen({ onContinue }: { onContinue: () => void }) {
-  return (
-    <main className="instructions-main">
-      <section className="instructions-card" aria-labelledby="instructions-title">
-        <span className="eyebrow">Before you record</span>
-        <h1 id="instructions-title">A quick guide to your reading</h1>
-        <ol>
-          <li>On the next screen, the reading passage will appear twice as a reminder to read it two times.</li>
-          <li>Read through the passage once before recording so you can get familiar with it.</li>
-          <li>When you’re ready, start one recording and read the passage aloud twice.</li>
-          <li>After the first reading, select the button to move to the second copy. The passage will scroll when you’re ready to continue.</li>
-          <li>You may pause for a short break between readings, or remain silent for around 3–5 seconds before beginning the second reading. This pause is optional.</li>
-        </ol>
-        <div className="instructions-actions">
-          <p>Your pause and both readings stay together in one recording.</p>
-          <button className="primary-button" type="button" onClick={onContinue}>Continue to the passage <span aria-hidden="true">→</span></button>
-        </div>
-      </section>
-    </main>
   )
 }
 
@@ -283,7 +273,7 @@ function MicOrb({ recording = false }: { recording?: boolean }) {
     <div className={`mic-orb ${recording ? 'mic-orb-recording' : ''}`} aria-hidden="true">
       {recording
         ? <div className="listening-dots"><i /><i /><i /><i /><i /></div>
-        : <img src="/assets/microphone.svg" alt="" />}
+        : <img src="/assets/4003-3526.svg" alt="" />}
     </div>
   )
 }
@@ -361,20 +351,12 @@ function StudioPanel({
   }
 
   return (
-    <aside className={`studio-panel ${view === 'review' ? 'studio-panel-review' : ''}`} aria-live="polite">
+    <aside className={`studio-panel ${view === 'review' ? 'studio-panel-review' : ''} ${view === 'record' && recordingState !== 'idle' ? 'studio-panel-capture' : ''}`} aria-live="polite">
       {view === 'submitted' ? (
         <div className="studio-content submitted-content">
           <Mascot />
           <h2>Submitted!</h2>
           <p>Your reading has been sent for assessment.</p>
-        </div>
-      ) : view === 'overview' ? (
-        <div className="studio-content overview-content">
-          <Mascot />
-          <h2>Before you begin</h2>
-          <p>Get familiar with the passage and the steps for making one recording with two readings.</p>
-          <button className="primary-button start-button" onClick={onBegin}>Read instructions <span aria-hidden="true">→</span></button>
-          <AdviceCards />
         </div>
       ) : view === 'review' ? (
         <div className="studio-content review-content">
@@ -389,7 +371,7 @@ function StudioPanel({
             <span className="audio-duration">{formatTime(playTime)} / {formatTime(duration)}</span>
           </div>
           <div className="review-actions">
-            <button className="secondary-button" onClick={onRestart} disabled={busy}>Record again <img src="/assets/replay.svg" alt="" /></button>
+            <button className="secondary-button" onClick={onRestart} disabled={busy}>Record again <img src="/assets/replay-muted.svg" alt="" /></button>
             <button className="primary-button" onClick={onSubmit} disabled={busy}>
               {busy ? 'Submitting…' : 'Submit recording'} <span aria-hidden="true">➤</span>
             </button>
@@ -398,36 +380,37 @@ function StudioPanel({
           <div className="privacy-note"><img src="/assets/lock.svg" alt="" />Your recording will be securely submitted for assessment.</div>
         </div>
       ) : (
-        <div className="studio-content">
-          {recordingState === 'recording' ? <span className="recording-pill"><i /> Recording…</span> : null}
-          {recordingState === 'paused' ? <span className="paused-pill">Paused</span> : null}
-          <MicOrb recording={recordingState === 'recording'} />
-          <h2>{recordingState === 'idle' ? 'Ready to Record?' : recordingState === 'paused' ? 'Take your time' : 'Reading in progress'}</h2>
-          <p className="studio-instructions">
-            {recordingState === 'idle'
-              ? 'Start one recording and read both copies aloud. Move to the second copy when you finish the first.'
-              : recordingState === 'paused'
-                ? 'Resume when you’re ready to continue reading.'
-                : 'Read at your natural pace. Your recording will include both readings and any pauses.'}
-          </p>
+        <div className={`studio-content ${recordingState === 'idle' ? 'studio-content-ready' : 'studio-content-capture'}`}>
           {recordingState === 'idle' ? (
-            <button className="primary-button start-button" onClick={onBegin}>Start <span aria-hidden="true">▶</span></button>
+            <>
+              <MicOrb />
+              <div className="studio-ready-copy">
+                <h2>Ready to Record?</h2>
+                <p className="studio-instructions">Please read aloud clearly.<br />You will be asked to read the passage twice.</p>
+                <button className="primary-button start-button" onClick={onBegin}>Start <span aria-hidden="true">▶</span></button>
+              </div>
+              {error ? <p className="inline-error" role="alert">{error}</p> : null}
+              <AdviceCards />
+            </>
           ) : (
             <>
+              {recordingState === 'recording' ? <span className="recording-pill"><i />Recording…</span> : <span className="paused-pill">Paused</span>}
+              <MicOrb recording={recordingState === 'recording'} />
               <div className="recording-time">{formatTime(elapsed)}</div>
-              <div className="recording-actions">
-                <button className="round-action round-restart" onClick={onRestart} aria-label="Start over"><img src="/assets/replay.svg" alt="" /></button>
-                {recordingState === 'recording'
-                  ? <button className="round-action round-pause" onClick={onPause} aria-label="Pause recording"><img src="/assets/pause.svg" alt="" /></button>
-                  : <button className="round-action round-pause" onClick={onResume} aria-label="Resume recording"><img src="/assets/play.svg" alt="" /></button>}
-                <button className="round-action round-finish" onClick={onFinish} aria-label="Finish recording" disabled={!secondReadingComplete}><img src="/assets/stop.svg" alt="" /></button>
+              <div className="recording-control-group">
+                <div className="recording-actions">
+                  <button className="round-action round-restart" onClick={onRestart} aria-label="Start over"><img src="/assets/replay.svg" alt="" /></button>
+                  {recordingState === 'recording'
+                    ? <button className="round-action round-pause" onClick={onPause} aria-label="Pause recording"><img src="/assets/pause.svg" alt="" /></button>
+                    : <button className="round-action round-pause" onClick={onResume} aria-label="Resume recording"><img src="/assets/play.svg" alt="" /></button>}
+                  <button className="round-action round-finish" onClick={onFinish} aria-label="Finish recording" disabled={!secondReadingComplete}><img src="/assets/stop.svg" alt="" /></button>
+                </div>
+                <div className="recording-labels"><span>Start over</span><span>{recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>Finish</span></div>
+                {!secondReadingComplete ? <p className="inline-note">Finish both readings in the passage panel to enable Finish.</p> : null}
               </div>
-              <div className="recording-labels"><span>Start over</span><span>{recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>Finish</span></div>
-              {!secondReadingComplete ? <p className="inline-note">Finish both readings in the passage panel to enable Finish.</p> : null}
+              {error ? <p className="inline-error" role="alert">{error}</p> : null}
             </>
           )}
-          {error ? <p className="inline-error" role="alert">{error}</p> : null}
-          {recordingState === 'idle' ? <AdviceCards /> : null}
         </div>
       )}
     </aside>
@@ -504,12 +487,16 @@ function SubmissionModal({
 }
 
 function AssessmentRoute() {
-  const { token = '' } = useParams()
-  return <AssessmentFlow key={token} token={token} />
+  const { token = '', step } = useParams()
+  return <AssessmentFlow key={token} token={token} step={step} />
 }
 
-function AssessmentFlow({ token }: { token: string }) {
+function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = `/a/${encodeURIComponent(token)}`
+  const routeUrl = `${location.pathname}${location.search}${location.hash}`
+  const routeUrlRef = useRef(routeUrl)
   const [link, setLink] = useState<PublicLink | null>(null)
   const [view, setView] = useState<FlowView>('overview')
   const [loading, setLoading] = useState(true)
@@ -520,6 +507,8 @@ function AssessmentFlow({ token }: { token: string }) {
   const [busy, setBusy] = useState(false)
   const [readingNumber, setReadingNumber] = useState(1)
   const [secondReadingComplete, setSecondReadingComplete] = useState(false)
+  const [allowEmptyRecordRoute, setAllowEmptyRecordRoute] = useState(false)
+  const [recordingStarting, setRecordingStarting] = useState(false)
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [elapsed, setElapsed] = useState(0)
   const [clip, setClip] = useState<Blob | null>(null)
@@ -532,9 +521,15 @@ function AssessmentFlow({ token }: { token: string }) {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const recordingStartRef = useRef(0)
+  const recordingStartingRef = useRef(false)
   const assessmentInFlightRef = useRef(false)
   const secondReadingCompleteRef = useRef(false)
   const submissionKeysRef = useRef<WeakMap<Blob, Map<string, string>>>(new WeakMap())
+
+  useEffect(() => {
+    routeUrlRef.current = routeUrl
+  }, [routeUrl])
 
   useEffect(() => {
     let cancelled = false
@@ -565,6 +560,142 @@ function AssessmentFlow({ token }: { token: string }) {
     return () => window.clearInterval(timer)
   }, [recordingState, link])
 
+  useEffect(() => {
+    if (loading || !link) return
+
+    const previewRequested = step === 'overview' && new URLSearchParams(location.search).get('preview') === '1'
+    if (step === undefined || step === 'overview') {
+      setView(previewRequested ? 'preview' : 'overview')
+      return
+    }
+
+    if (step === 'record') {
+      if (recordingState === 'idle' && !clip && !allowEmptyRecordRoute) {
+        setFlowError('Your recording is not available in this session. Start again to continue.')
+        setView('overview')
+        navigate(`${basePath}/overview`, { replace: true })
+        return
+      }
+      setView('record')
+      return
+    }
+
+    if (step === 'submit') {
+      if (!clip && !assessmentToken) {
+        setFlowError('Your recording is not available in this session. Start again to continue.')
+        setView('overview')
+        navigate(`${basePath}/overview`, { replace: true })
+        return
+      }
+      setView(assessmentToken ? 'submitted' : 'review')
+      return
+    }
+
+    navigate(`${basePath}/overview`, { replace: true })
+  }, [allowEmptyRecordRoute, assessmentToken, basePath, clip, link, loading, location.search, navigate, recordingState, step])
+
+  const discardUnsubmittedRecording = useCallback(() => {
+    recordingStartRef.current += 1
+    recordingStartingRef.current = false
+    setRecordingStarting(false)
+    const recorder = recorderRef.current
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.ondataavailable = null
+      recorder.onstop = null
+      recorder.stop()
+    }
+    recorderRef.current = null
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    streamRef.current = null
+    chunksRef.current = []
+    secondReadingCompleteRef.current = false
+    setRecordingState('idle')
+    setClip(null)
+    setClipUrl(null)
+    setElapsed(0)
+    setSecondReadingComplete(false)
+  }, [])
+
+  const hasUnsubmittedRecording = recordingState !== 'idle' || (clip !== null && !assessmentToken)
+  useEffect(() => {
+    if (!hasUnsubmittedRecording && !recordingStarting) return
+
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsubmittedRecording) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    function onPopState(event: PopStateEvent) {
+      if (recordingStartingRef.current) {
+        recordingStartRef.current += 1
+        recordingStartingRef.current = false
+        setRecordingStarting(false)
+      }
+      if (!hasUnsubmittedRecording) return
+      const destination = `${window.location.pathname}${window.location.search}${window.location.hash}`
+      const sameAssessment = destination === basePath || destination.startsWith(`${basePath}/`)
+      const leavesActiveRecording = recordingState !== 'idle' && destination !== `${basePath}/record`
+      const leavesAssessmentWithRecording = !sameAssessment && hasUnsubmittedRecording
+      if (!leavesActiveRecording && !leavesAssessmentWithRecording) return
+
+      const message = 'Leaving now will discard your unsubmitted recording. Do you want to continue?'
+      if (window.confirm(message)) {
+        discardUnsubmittedRecording()
+        return
+      }
+
+      const safeUrl = routeUrlRef.current
+      window.history.pushState(event.state, '', safeUrl)
+      navigate(safeUrl, { replace: true })
+    }
+
+    window.addEventListener('beforeunload', onBeforeUnload)
+    window.addEventListener('popstate', onPopState)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('popstate', onPopState)
+    }
+  }, [basePath, discardUnsubmittedRecording, hasUnsubmittedRecording, navigate, recordingStarting, recordingState])
+
+  function guardAssessmentLink(event: ReactMouseEvent<HTMLDivElement>) {
+    if (recordingStartingRef.current) {
+      recordingStartRef.current += 1
+      recordingStartingRef.current = false
+      setRecordingStarting(false)
+    }
+    if (!hasUnsubmittedRecording || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.defaultPrevented) return
+    const target = event.target
+    if (!(target instanceof Element)) return
+    const anchor = target.closest('a[href]')
+    if (!(anchor instanceof HTMLAnchorElement) || (anchor.target && anchor.target !== '_self')) return
+
+    const destination = new URL(anchor.href, window.location.origin)
+    const sameAssessment = destination.origin === window.location.origin
+      && (destination.pathname === basePath || destination.pathname.startsWith(`${basePath}/`))
+    const leavesActiveRecording = recordingState !== 'idle' && destination.pathname !== `${basePath}/record`
+    if (sameAssessment && !leavesActiveRecording) return
+
+    if (!window.confirm('Leaving now will discard your unsubmitted recording. Do you want to continue?')) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    discardUnsubmittedRecording()
+  }
+
+  function navigateToView(nextView: FlowView, replace = false) {
+    let target = `${basePath}/submit`
+    if (nextView === 'overview') target = `${basePath}/overview`
+    if (nextView === 'preview') target = `${basePath}/overview?preview=1`
+    if (nextView === 'record') target = `${basePath}/record`
+    if (target === routeUrl) {
+      setView(nextView)
+      return
+    }
+    navigate(target, { replace })
+  }
+
   useEffect(() => () => {
     const recorder = recorderRef.current
     if (recorder && recorder.state !== 'inactive') {
@@ -576,21 +707,45 @@ function AssessmentFlow({ token }: { token: string }) {
     if (clipUrl) URL.revokeObjectURL(clipUrl)
   }, [clipUrl])
 
+  useEffect(() => () => {
+    recordingStartRef.current += 1
+    recordingStartingRef.current = false
+  }, [])
+
   async function beginRecording() {
+    if (clip && !window.confirm('Starting a new recording will replace your current recording. Continue?')) return
+    const requestId = ++recordingStartRef.current
+    recordingStartingRef.current = true
+    setRecordingStarting(true)
     setFlowError('')
     setClipError('')
     setElapsed(0)
     setClip(null)
     setClipUrl(null)
+    setAssessmentToken('')
+    setReportUrl('')
+    setAssessmentStatus('')
+    setReportSession(null)
+    setAllowEmptyRecordRoute(false)
     setReadingNumber(1)
     setSecondReadingComplete(false)
     secondReadingCompleteRef.current = false
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      recordingStartingRef.current = false
+      setRecordingStarting(false)
       setFlowError('Audio recording is not available in this browser. Try a current version of Chrome, Edge, or Safari.')
       return
     }
+    let grantedStream: MediaStream | null = null
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      grantedStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = grantedStream
+      if (requestId !== recordingStartRef.current) {
+        stream.getTracks().forEach(track => track.stop())
+        return
+      }
+      recordingStartingRef.current = false
+      setRecordingStarting(false)
       streamRef.current = stream
       const availableTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
       const mimeType = availableTypes.find(type => MediaRecorder.isTypeSupported(type))
@@ -605,9 +760,10 @@ function AssessmentFlow({ token }: { token: string }) {
         setClip(nextClip)
         setClipUrl(URL.createObjectURL(nextClip))
         setRecordingState('idle')
+        recorderRef.current = null
         stream.getTracks().forEach(track => track.stop())
         streamRef.current = null
-        setView('review')
+        navigateToView('review')
         if (!secondReadingCompleteRef.current) {
           setClipError(current => current || 'The recording ended before you marked both readings complete. Please record both readings again.')
         } else if (nextClip.size === 0) {
@@ -616,11 +772,21 @@ function AssessmentFlow({ token }: { token: string }) {
           setClipError('This recording is larger than the allowed file size. Please record again in a quiet place.')
         }
       }
-      recorder.onerror = () => setFlowError('The browser could not record audio. Please try again.')
+      recorder.onerror = () => {
+        setFlowError('The browser could not record audio. Please try again.')
+        if (recorder.state !== 'inactive') recorder.stop()
+      }
       recorderRef.current = recorder
       recorder.start(1000)
       setRecordingState('recording')
+      setAllowEmptyRecordRoute(false)
+      navigateToView('record')
     } catch {
+      grantedStream?.getTracks().forEach(track => track.stop())
+      if (streamRef.current === grantedStream) streamRef.current = null
+      if (requestId !== recordingStartRef.current) return
+      recordingStartingRef.current = false
+      setRecordingStarting(false)
       setFlowError('Microphone access is needed to record. Allow microphone access in your browser settings, then try again.')
     }
   }
@@ -650,12 +816,16 @@ function AssessmentFlow({ token }: { token: string }) {
   }
 
   function restartRecording() {
+    recordingStartRef.current += 1
+    recordingStartingRef.current = false
+    setRecordingStarting(false)
     const recorder = recorderRef.current
     if (recorder && recorder.state !== 'inactive') {
       recorder.ondataavailable = null
       recorder.onstop = null
       recorder.stop()
     }
+    recorderRef.current = null
     streamRef.current?.getTracks().forEach(track => track.stop())
     streamRef.current = null
     setRecordingState('idle')
@@ -667,7 +837,12 @@ function AssessmentFlow({ token }: { token: string }) {
     secondReadingCompleteRef.current = false
     setClipError('')
     setFlowError('')
-    setView('record')
+    setAssessmentToken('')
+    setReportUrl('')
+    setAssessmentStatus('')
+    setReportSession(null)
+    setAllowEmptyRecordRoute(true)
+    navigateToView('record')
   }
 
   function openSubmit() {
@@ -721,7 +896,6 @@ function AssessmentFlow({ token }: { token: string }) {
       setAssessmentToken(created.assessment_token)
       setReportUrl(created.report_url)
       setAssessmentStatus(created.status)
-      setView('submitted')
       setModalOpen(false)
     } catch (error) {
       setModalError(errorMessage(error))
@@ -756,45 +930,44 @@ function AssessmentFlow({ token }: { token: string }) {
     return <div className="student-app"><StudentHeader activeStep={1} /><MessageScreen title="This assessment link isn’t available" message={loadError || 'Check the link and try again, or contact your English center.'} action={<Link className="primary-button button-link" to="/">Back to home</Link>} /></div>
   }
 
-  const activeStep: 1 | 2 | 3 = view === 'overview' || view === 'instructions' ? 1 : view === 'record' ? 2 : 3
+  const activeStep: 1 | 2 | 3 = view === 'overview' || view === 'preview' ? 1 : view === 'record' ? 2 : 3
   const showReading = view === 'record' || view === 'review'
   const duration = elapsed
   const panelError = flowError || clipError
 
   return (
-    <div className="student-app">
-      <StudentHeader activeStep={activeStep} readingNumber={showReading ? readingNumber : undefined} totalReadings={showReading ? TOTAL_READINGS : undefined} />
-      {view === 'instructions' ? <InstructionsScreen onContinue={() => { setView('record'); setReadingNumber(1); setSecondReadingComplete(false) }} /> : (
-        <main className={`assessment-main ${showReading ? 'reading-stage' : ''}`}>
-          <div className="assessment-grid">
-            <PassagePanel
-              link={link}
-              view={view}
-              readingNumber={readingNumber}
-              secondReadingComplete={secondReadingComplete}
-              onPreview={() => setView('instructions')}
-              onAdvanceToSecond={() => setReadingNumber(2)}
-              onCompleteSecond={() => { secondReadingCompleteRef.current = true; setSecondReadingComplete(true) }}
-            />
-            <StudioPanel
-              view={view}
-              recordingState={recordingState}
-              elapsed={elapsed}
-              duration={duration}
-              error={panelError}
-              busy={busy}
-              audioUrl={clipUrl}
-              secondReadingComplete={secondReadingComplete}
-              onBegin={() => { if (view === 'overview') setView('instructions'); else void beginRecording() }}
-              onPause={pauseRecording}
-              onResume={resumeRecording}
-              onFinish={finishRecording}
-              onRestart={restartRecording}
-              onSubmit={openSubmit}
-            />
-          </div>
-        </main>
-      )}
+    <div className="student-app" onClickCapture={guardAssessmentLink}>
+      <StudentHeader activeStep={activeStep} />
+      <main className={`assessment-main ${showReading ? 'reading-stage' : ''}`}>
+        <div className="assessment-grid">
+          <PassagePanel
+            link={link}
+            view={view}
+            readingNumber={readingNumber}
+            secondReadingComplete={secondReadingComplete}
+            onPreview={() => navigateToView('preview')}
+            onBack={() => navigateToView('overview', true)}
+            onAdvanceToSecond={() => setReadingNumber(2)}
+            onCompleteSecond={() => { secondReadingCompleteRef.current = true; setSecondReadingComplete(true) }}
+          />
+          <StudioPanel
+            view={view}
+            recordingState={recordingState}
+            elapsed={elapsed}
+            duration={duration}
+            error={panelError}
+            busy={busy}
+            audioUrl={clipUrl}
+            secondReadingComplete={secondReadingComplete}
+            onBegin={() => { void beginRecording() }}
+            onPause={pauseRecording}
+            onResume={resumeRecording}
+            onFinish={finishRecording}
+            onRestart={restartRecording}
+            onSubmit={openSubmit}
+          />
+        </div>
+      </main>
       {modalOpen ? <SubmissionModal link={link} busy={busy} error={modalError} onClose={() => setModalOpen(false)} onSubmit={(name, email) => void submitAssessment(name, email)} /> : null}
       {view === 'submitted' ? (
         <div className="modal-backdrop">
@@ -1085,6 +1258,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/a/:token" element={<AssessmentRoute />} />
+        <Route path="/a/:token/:step" element={<AssessmentRoute />} />
         <Route path="/r/:token" element={<ReportPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin" element={<AdminProtectedLayout />}>

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
 const WORD_PATTERN = /[\p{L}\p{M}\p{N}]+(?:['’][\p{L}\p{M}\p{N}]+)*/gu
-const MAX_SEARCH_AHEAD = 18
-const MAX_SHORT_PHRASE_SEARCH_AHEAD = 8
+const MAX_SEARCH_AHEAD = 24
+const MAX_SHORT_PHRASE_SEARCH_AHEAD = 24
+const MAX_SECOND_READING_RECOVERY_DISTANCE = 48
+const MIN_SECOND_READING_RECOVERY_PROGRESS = 0.75
 const MAX_EXPECTED_GAP = 3
 
 export interface PassageTextPart {
@@ -243,6 +245,18 @@ export interface SpeechAlignment {
   provisional: boolean
 }
 
+type HighlightPosition = {
+  readingNumber: 1 | 2
+  wordIndex: number
+}
+
+/** Prevents stale recognition results from moving the visible highlight backward. */
+export function shouldAcceptForwardHighlight(previous: HighlightPosition | null, candidate: HighlightPosition): boolean {
+  return previous === null
+    || previous.readingNumber !== candidate.readingNumber
+    || candidate.wordIndex >= previous.wordIndex
+}
+
 /** Aligns a result while keeping interim recognition from committing progress. */
 export function alignSpeechResult(
   expectedWords: readonly string[],
@@ -274,6 +288,29 @@ export function alignContinuousTwoReadingResult(
   if (expectedWords.length === 0) return alignSpeechResult(expectedWords, transcript, nextExpectedIndex, isFinal)
 
   const twoReadingWords = [...expectedWords, ...expectedWords]
+
+  // If recognition fell behind near the end of Reading 1, a pause can make
+  // the first final result of Reading 2 look unrelated to the old cursor. A
+  // clear passage-prefix match is safe to use as a boundary resynchronization.
+  if (isFinal
+    && nextExpectedIndex < expectedWords.length
+    && nextExpectedIndex >= expectedWords.length - MAX_SECOND_READING_RECOVERY_DISTANCE
+    && nextExpectedIndex >= expectedWords.length * MIN_SECOND_READING_RECOVERY_PROGRESS) {
+    const recognizedWords = getWords(transcript)
+    const startsAtPassageBeginning = recognizedWords.length >= 2
+      && recognizedWords[0] === expectedWords[0]
+      && recognizedWords[1] === expectedWords[1]
+    if (startsAtPassageBeginning) {
+      const secondReadingAlignment = alignSpeechResult(twoReadingWords, transcript, expectedWords.length, true)
+      if (secondReadingAlignment.wordIndex !== null) {
+        return {
+          ...secondReadingAlignment,
+          wordIndex: secondReadingAlignment.wordIndex % expectedWords.length,
+        }
+      }
+    }
+  }
+
   const alignment = alignSpeechResult(twoReadingWords, transcript, nextExpectedIndex, isFinal)
   return {
     ...alignment,
@@ -316,6 +353,7 @@ export function useSpeechRecognitionPassage({
   const sessionKey = useMemo(() => ({ captureId, text }), [captureId, text])
   const [recognitionUi, setRecognitionUi] = useState<RecognitionUiState>(() => initialRecognitionUiState(sessionKey))
   const nextExpectedIndexRef = useRef(0)
+  const lastHighlightRef = useRef<HighlightPosition | null>(null)
   const currentUi = recognitionUi.sessionKey === sessionKey
     ? recognitionUi
     : initialRecognitionUiState(sessionKey)
@@ -323,6 +361,7 @@ export function useSpeechRecognitionPassage({
 
   useEffect(() => {
     nextExpectedIndexRef.current = 0
+    lastHighlightRef.current = null
   }, [sessionKey])
 
   useEffect(() => {
@@ -350,6 +389,7 @@ export function useSpeechRecognitionPassage({
     recognition.onresult = event => {
       if (disposed) return
       let latestInterim = ''
+      let enteredSecondReading = false
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index]
         const transcript = result?.[0]?.transcript?.trim() ?? ''
@@ -365,21 +405,59 @@ export function useSpeechRecognitionPassage({
         const matchedIndex = alignment.wordIndex
         if (matchedIndex === null) continue
         nextExpectedIndexRef.current = alignment.nextExpectedIndex
+        const nextReadingNumber = alignment.nextExpectedIndex >= expectedWords.length ? 2 : 1
         const crossedFirstReading = previousExpectedIndex < expectedWords.length
-          && alignment.nextExpectedIndex === expectedWords.length
+          && alignment.nextExpectedIndex >= expectedWords.length
+        if (crossedFirstReading) {
+          enteredSecondReading = true
+          // Always begin the second copy at its first word. A recognition result
+          // can contain the end of Reading 1 and the start of Reading 2.
+          lastHighlightRef.current = { readingNumber: 2, wordIndex: 0 }
+          updateRecognitionUiState(setRecognitionUi, sessionKey, {
+            readingNumber: 2,
+            activeWordIndex: 0,
+          })
+          continue
+        }
+        if (enteredSecondReading) continue
+        const acceptedFinalHighlight = shouldAcceptForwardHighlight(
+          lastHighlightRef.current,
+          { readingNumber: nextReadingNumber, wordIndex: matchedIndex },
+        )
+        if (acceptedFinalHighlight) {
+          lastHighlightRef.current = { readingNumber: nextReadingNumber, wordIndex: matchedIndex }
+        }
+        updateRecognitionUiState(setRecognitionUi, sessionKey, current => ({
+          readingNumber: nextReadingNumber,
+          activeWordIndex: acceptedFinalHighlight ? matchedIndex : current.activeWordIndex,
+        }))
+      }
+      if (enteredSecondReading) {
         updateRecognitionUiState(setRecognitionUi, sessionKey, {
-          readingNumber: alignment.nextExpectedIndex >= expectedWords.length ? 2 : 1,
-          // At the exact boundary there is no second-reading word to highlight
-          // yet; the next interim/final result will establish its position.
-          activeWordIndex: crossedFirstReading ? null : matchedIndex,
+          interimTranscript: latestInterim,
+          provisionalWordIndex: null,
         })
+        return
       }
       const provisional = latestInterim
         ? alignContinuousTwoReadingResult(expectedWords, latestInterim, nextExpectedIndexRef.current, false)
         : null
+      const provisionalReadingNumber = nextExpectedIndexRef.current >= expectedWords.length ? 2 : 1
+      const provisionalWordIndex = provisional?.wordIndex ?? null
+      const acceptedProvisionalHighlight = provisionalWordIndex !== null
+        && shouldAcceptForwardHighlight(lastHighlightRef.current, {
+          readingNumber: provisionalReadingNumber,
+          wordIndex: provisionalWordIndex,
+        })
+      if (acceptedProvisionalHighlight && provisionalWordIndex !== null) {
+        lastHighlightRef.current = {
+          readingNumber: provisionalReadingNumber,
+          wordIndex: provisionalWordIndex,
+        }
+      }
       updateRecognitionUiState(setRecognitionUi, sessionKey, {
         interimTranscript: latestInterim,
-        provisionalWordIndex: provisional?.wordIndex ?? null,
+        provisionalWordIndex: acceptedProvisionalHighlight ? provisionalWordIndex : null,
       })
     }
 

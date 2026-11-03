@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { alignSpeechResult, alignContinuousTwoReadingResult, matchRecognizedWords } from '../src/speech-recognition'
+import { alignSpeechResult, alignContinuousTwoReadingResult, matchRecognizedWords, shouldAcceptForwardHighlight } from '../src/speech-recognition'
 
 describe('speech passage matching', () => {
   test('matches repeated expected words in order without moving backwards', () => {
@@ -21,6 +21,12 @@ describe('speech passage matching', () => {
     expect(matchRecognizedWords(expectedWords, 'read story', 0)).toBeNull()
   })
 
+  test('catches up when a strong phrase is ahead of the recognition cursor', () => {
+    const expectedWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
+
+    expect(matchRecognizedWords(expectedWords, 'nine ten', 0)).toBe(9)
+  })
+
   test('shows an interim match provisionally without advancing the committed cursor', () => {
     const expectedWords = ['read', 'the', 'passage']
     const interim = alignSpeechResult(expectedWords, 'READ', 0, false)
@@ -28,6 +34,30 @@ describe('speech passage matching', () => {
 
     expect(interim).toEqual({ wordIndex: 0, nextExpectedIndex: 0, provisional: true })
     expect(final).toEqual({ wordIndex: 0, nextExpectedIndex: 1, provisional: false })
+  })
+
+  test('resynchronizes to Reading 2 after a pause near the end of Reading 1', () => {
+    const expectedWords = ['read', 'the', 'passage', 'today', 'with', 'care', 'and', 'clear', 'speech', 'every', 'time', 'again']
+    const firstReadingCursor = 9
+    const secondReading = alignContinuousTwoReadingResult(expectedWords, 'read the', firstReadingCursor, true)
+
+    expect(secondReading.wordIndex).toBe(1)
+    expect(secondReading.nextExpectedIndex).toBe(expectedWords.length + 2)
+  })
+
+  test('does not let stale highlighting move back within a reading', () => {
+    expect(shouldAcceptForwardHighlight(
+      { readingNumber: 1, wordIndex: 12 },
+      { readingNumber: 1, wordIndex: 8 },
+    )).toBe(false)
+    expect(shouldAcceptForwardHighlight(
+      { readingNumber: 1, wordIndex: 12 },
+      { readingNumber: 1, wordIndex: 13 },
+    )).toBe(true)
+    expect(shouldAcceptForwardHighlight(
+      { readingNumber: 1, wordIndex: 12 },
+      { readingNumber: 2, wordIndex: 0 },
+    )).toBe(true)
   })
 
   test('aligns a second reading after a pause without resetting on unrelated speech', () => {

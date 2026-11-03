@@ -44,6 +44,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   const [assessmentStatus, setAssessmentStatus] = useState('')
   const [reportSession, setReportSession] = useState<SavedReportSession | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
+  const retryingRecordingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const capturedBytesRef = useRef(0)
@@ -120,12 +121,14 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     }
 
     if (step === 'record') {
+      retryingRecordingRef.current = false
       setView('record')
       return
     }
 
     if (step === 'submit') {
       if (!clip && !assessmentToken) {
+        if (retryingRecordingRef.current) return
         setFlowError('Your recording is not available in this session. Start again to continue.')
         setView('overview')
         navigate(`${basePath}/overview`, { replace: true })
@@ -464,6 +467,11 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   }
 
   function retryRecording() {
+    // Move the flow to /record before clearing the review clip. Otherwise the
+    // /submit route-sync effect briefly sees no clip and redirects to overview.
+    retryingRecordingRef.current = true
+    setView('record')
+    navigateToView('record')
     recordingStartRef.current += 1
     recordingStartingRef.current = false
     setRecordingStarting(false)
@@ -492,7 +500,6 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     setAssessmentStatus('')
     setReportSession(null)
     clearRecording()
-    navigateToView('record')
   }
 
   function openSubmit() {

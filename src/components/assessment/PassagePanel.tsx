@@ -3,6 +3,9 @@ import { useSpeechRecognitionPassage } from '../../speech-recognition'
 import { PASSAGE_ART, SCROLL_THUMB_HEIGHT, type FlowView, type RecordingState } from '../../app/types'
 import type { PublicLink } from '../../student-api'
 
+const PASSAGE_SCROLL_TRIGGER_RATIO = 2 / 3
+const PASSAGE_SCROLL_TARGET_RATIO = 1 / 3
+
 function partProgressWordIndices(parts: readonly { wordIndex: number | null }[]): (number | null)[] {
   const indices = new Array<number | null>(parts.length).fill(null)
   let nextWordIndex: number | null = null
@@ -71,7 +74,13 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
     const list = passageListRef.current
     const secondReading = readingCopyRefs.current[1]
     if (!list || !secondReading) return
-    list.scrollTo({ top: secondReading.offsetTop, behavior: 'smooth' })
+    // offsetTop is relative to the positioned reading card, not this scroll
+    // container. Derive the content offset from both element rectangles so the
+    // second copy lands exactly at its first sentence.
+    const listBounds = list.getBoundingClientRect()
+    const secondReadingBounds = secondReading.getBoundingClientRect()
+    const secondReadingTop = list.scrollTop + secondReadingBounds.top - listBounds.top
+    list.scrollTo({ top: Math.max(0, secondReadingTop), behavior: 'smooth' })
     window.requestAnimationFrame(updateScrollThumb)
   }, [readingNumber, updateScrollThumb, view])
 
@@ -79,12 +88,24 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
     const list = passageListRef.current
     const sentence = activeSentenceRef.current
     if (view !== 'record' || activeSentenceIndex === null || !list || !sentence) return
+    // The second-reading jump owns the initial position of Reading 2. Do not
+    // immediately offset its first sentence because it is temporarily below
+    // the viewport before the jump is applied.
+    if (readingNumber === 2 && activeSentenceIndex === 0) return
+
     const listBounds = list.getBoundingClientRect()
     const sentenceBounds = sentence.getBoundingClientRect()
-    if (sentenceBounds.top < listBounds.top || sentenceBounds.bottom > listBounds.bottom) {
-      list.scrollTo({ top: list.scrollTop + sentenceBounds.top - listBounds.top - 24, behavior: 'smooth' })
-    }
-  }, [activeSentenceIndex, view])
+    const triggerTop = listBounds.top + list.clientHeight * PASSAGE_SCROLL_TRIGGER_RATIO
+    const sentenceIsAboveViewport = sentenceBounds.top < listBounds.top
+    const sentencePassedTrigger = sentenceBounds.top > triggerTop
+    if (!sentenceIsAboveViewport && !sentencePassedTrigger) return
+
+    const targetOffset = sentenceIsAboveViewport
+      ? 24
+      : list.clientHeight * PASSAGE_SCROLL_TARGET_RATIO
+    const nextScrollTop = list.scrollTop + sentenceBounds.top - listBounds.top - targetOffset
+    list.scrollTo({ top: Math.max(0, nextScrollTop), behavior: 'smooth' })
+  }, [activeSentenceIndex, readingNumber, view])
 
   useEffect(() => {
     if (view !== 'record' && view !== 'review') return

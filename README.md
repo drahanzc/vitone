@@ -21,6 +21,10 @@ Vite serves the UI at `http://localhost:5173` and proxies `/api`, `/health`, `/p
 
 For a separately hosted API, set `VITE_API_BASE_URL` to its origin. The backend must allow the UI origin in `PUBLIC_BASE_URL` for browser requests across origins. Leave the value empty to use same-origin paths.
 
+## Deploying to Vercel
+
+Set the project root to `ui`, the build command to `bun run build`, and the output directory to `dist`. Set `VITE_API_BASE_URL` to the public backend origin at build time. `vercel.json` rewrites frontend routes to `index.html`, allowing assessment links and other client-side routes to work on direct visits and refreshes. If the backend is proxied through the same domain, configure its rewrites before the SPA catch-all.
+
 ## OpenAPI types
 
 `assets/open-api.json` is the OpenAPI 3.1 document used to generate frontend types in `src/api-schema.d.ts`. Refresh the JSON from the running backend when its API contract changes, then regenerate the types:

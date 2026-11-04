@@ -1579,11 +1579,27 @@ input:focus-visible {
   .step-number { width: 32px; height: 32px; }
 
   .assessment-main {
-    padding: 32px 20px 40px ;
+    padding: 32px 20px 12px;
     min-height: auto;
   }
 
   .assessment-grid { gap: 16px; }
+
+  .assessment-view-overview .passage-summary,
+  .assessment-view-preview .preview-copy {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(16 38 102 / 50%) transparent;
+  }
+
+  .assessment-view-overview .passage-summary::-webkit-scrollbar,
+  .assessment-view-preview .preview-copy::-webkit-scrollbar { width: 4px; }
+  .assessment-view-overview .passage-summary::-webkit-scrollbar-thumb,
+  .assessment-view-preview .preview-copy::-webkit-scrollbar-thumb {
+    border-radius: 99px;
+    background: linear-gradient(180deg, rgb(8 19 51 / 50%), rgb(24 57 153 / 50%));
+  }
+  .assessment-view-overview .passage-summary::-webkit-scrollbar-track,
+  .assessment-view-preview .preview-copy::-webkit-scrollbar-track { background: transparent; }
 
   .passage-card,
   .reading-card,
@@ -1730,21 +1746,23 @@ input:focus-visible {
   .assessment-view-record .assessment-grid,
   .assessment-view-review .assessment-grid {
     min-height: 0;
-    grid-template-rows: minmax(0, 1fr) 281px;
+    grid-template-rows: minmax(0, 1fr) 200px;
   }
 
   .assessment-view-review .assessment-grid { grid-template-rows: minmax(0, 1fr) 284px; }
   .assessment-view-record .reading-card,
   .assessment-view-review .reading-card { height: auto; min-height: 0; }
 
-  .assessment-view-record .reading-card-top,
+  .assessment-view-record .reading-card-top { padding-bottom: 16px; }
+  .assessment-view-record .reading-scrollbar-thumb,
+  .assessment-view-review .reading-scrollbar-thumb { width: 4px; }
   .assessment-view-review .reading-card-top { display: none; }
   .assessment-view-record .reading-copy,
   .assessment-view-review .reading-copy { gap: 14px; padding-bottom: 24px; }
   .assessment-view-record .sentence-row,
   .assessment-view-review .sentence-row,
   .assessment-view-record .sentence-row.speech-sentence-active,
-  .assessment-view-review .sentence-row.speech-sentence-active { grid-template-columns: minmax(0, 1fr); gap: 0; font-size: 15px; line-height: 1.28; text-align: justify; }
+  .assessment-view-review .sentence-row.speech-sentence-active { grid-template-columns: minmax(0, 1fr); gap: 0; font-size: 15px; line-height: 1.28; text-align: center; }
   .assessment-view-record .sentence-number,
   .assessment-view-review .sentence-number { display: none; }
   .assessment-view-record .sentence-row p,
@@ -1756,8 +1774,8 @@ input:focus-visible {
 
   .assessment-view-record .studio-panel,
   .assessment-view-review .studio-panel {
-    height: 281px;
-    min-height: 281px;
+    height: 200px;
+    min-height: 200px;
   }
   .assessment-view-review .studio-panel { height: 284px; min-height: 284px; }
 
@@ -1769,9 +1787,10 @@ input:focus-visible {
 
   .assessment-view-record .mic-orb-slot,
   .assessment-view-record .mic-orb {
-    width: 100px;
+    /* width: 100px;
     height: 100px;
-    margin: 0;
+    margin: 0; */
+    display: none;
   }
 
   .assessment-view-record .mic-orb {

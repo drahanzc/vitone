@@ -31,7 +31,7 @@ export function StudentHeader({ activeStep, showInfo = false }: {
           )
         })}
       </nav>
-      {/* {showInfo ? <span className="header-note" title="Read the passage twice in one recording before submitting."><img src="/assets/student-assessment-info.svg" alt="Assessment information" /></span> : null} */}
+      {/* {showInfo ? <span className="header-note" title="Read the passage twice in one recording before submitting."><img src="/assets/student-assessment-info.svg" alt="" /></span> : null} */}
     </header>
   )
 }

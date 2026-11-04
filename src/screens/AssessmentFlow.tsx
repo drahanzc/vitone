@@ -554,7 +554,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   return (
     <div className="student-app" data-capture-id={captureId} onClickCapture={guardAssessmentLink}>
       <StudentHeader activeStep={activeStep} showInfo />
-      <main className={`assessment-main ${showReading ? 'reading-stage' : ''}`}>
+      <main className={`assessment-main assessment-view-${view} ${showReading ? 'reading-stage' : ''}`}>
         <div className="assessment-grid">
           <PassagePanel
             link={link}

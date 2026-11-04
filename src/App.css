@@ -1450,7 +1450,6 @@ input:focus-visible {
   .stepper-step { gap: 5px; font-size: 0; }
   .step-number { width: 32px; height: 32px; font-size: 11px; }
   .header-note { width: 32px; height: 32px; }
-  .assessment-main { min-height: auto; padding: 8px 14px 24px; }
   .assessment-grid { min-height: auto; grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .reading-stage .assessment-grid { height: auto; min-height: 0; grid-template-rows: auto; }
   .passage-card, .reading-card, .preview-card { min-height: 540px; border-radius: 30px; }
@@ -1526,6 +1525,229 @@ input:focus-visible {
   .profile-row { min-height: 60px; }
   .report-item-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* The assessment flow uses the compact mobile compositions from the student designs. */
+@media (max-width: 760px) {
+  .student-app {
+    max-height: none;
+    min-height: 100dvh;
+    padding: 20px 0 24px;
+  }
+
+  .student-header {
+    width: 100%;
+    height: 84px;
+    align-items: flex-start;
+    padding: 0 20px;
+  }
+
+  .brand {
+    height: 32px;
+    font-size: 20px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .stepper {
+    right: 20px;
+    bottom: 0;
+    left: 20px;
+    justify-content: center;
+    gap: 24px;
+    transform: none;
+  }
+
+  .stepper-step { gap: 8px; font-size: 12px; }
+  .step-number { width: 32px; height: 32px; }
+
+  .assessment-main {
+    padding: 32px 20px 40px ;
+    min-height: auto;
+  }
+
+  .assessment-grid { gap: 16px; }
+
+  .passage-card,
+  .reading-card,
+  .preview-card,
+  .studio-panel,
+  .studio-content {
+    border-radius: 40px;
+  }
+
+  .assessment-view-overview .studio-panel { display: none; }
+
+  .assessment-view-overview .passage-card {
+    /* height: 592px; */
+    min-height: 592px;
+    padding: 16px 16px 20px;
+  }
+
+  .assessment-view-overview .passage-art {
+    height: 200px;
+    min-height: 200px;
+    flex: 0 0 200px;
+    border-radius: 28px;
+  }
+
+  .assessment-view-overview .passage-summary {
+    min-height: 0;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    gap: 24px;
+    overflow: auto;
+    padding: 32px 8px;
+  }
+
+  .assessment-view-overview .passage-summary-copy { gap: 24px; flex:1;}
+  .assessment-view-overview .passage-summary h1 { font-size: 24px; line-height: 25px; }
+  .assessment-view-overview .passage-context-copy { font-size: 13px; line-height: 1.8; white-space: normal; text-align: justify;}
+  .assessment-view-overview .context-pill { min-height: 28px; padding: 6px 10px; font-size: 12px; }
+  .assessment-view-overview .text-button { flex: 0 0 auto; font-size: 14px; }
+
+  .assessment-view-preview .preview-card {
+    position: relative;
+    height: 407px;
+    min-height: 407px;
+    padding: 58px 24px 24px;
+  }
+
+  .assessment-view-preview .preview-card-top {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    left: 24px;
+    padding: 0;
+  }
+
+  .assessment-view-preview .back-link { font-size: 14px; }
+  .assessment-view-preview .context-pill { min-height: 28px; padding: 6px 10px; font-size: 12px; }
+  .assessment-view-preview .preview-copy h1 { margin-bottom: 8px; font-size: 20px; line-height: 25px; }
+  .assessment-view-preview .preview-copy p { font-size: 13px; line-height: 1.55; text-align: left; }
+
+  .assessment-view-preview .studio-panel {
+    height: 169px;
+    min-height: 169px;
+  }
+
+  .assessment-view-preview .studio-content,
+  .assessment-view-record .studio-content,
+  .assessment-view-review .studio-content {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .assessment-view-preview .studio-content-ready {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    padding: 24px;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .assessment-view-preview .mic-orb-slot,
+  .assessment-view-preview .mic-orb {
+    width: 120px;
+    height: 120px;
+    margin: 0;
+  }
+
+  .assessment-view-preview .studio-ready-copy {
+    min-width: 0;
+    flex: 1 1 0;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .assessment-view-preview .studio-ready-copy h2 { font-size: 16px; line-height: 20px; }
+  .assessment-view-preview .studio-ready-copy .studio-instructions {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: left;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .assessment-view-preview .start-button { width: auto; min-height: 38px; padding: 10px 16px; font-size: 14px; }
+  .assessment-view-preview .advice-cards { display: none; }
+
+  .assessment-view-record .reading-card,
+  .assessment-view-review .reading-card {
+    height: 285px;
+    min-height: 285px;
+    padding: 22px 24px;
+  }
+
+  .assessment-view-record .reading-card-top,
+  .assessment-view-review .reading-card-top { display: none; }
+  .assessment-view-record .reading-copy,
+  .assessment-view-review .reading-copy { gap: 14px; padding-bottom: 24px; }
+  .assessment-view-record .sentence-row,
+  .assessment-view-review .sentence-row { grid-template-columns: 1fr; gap: 0; font-size: 15px; line-height: 1.28; text-align: center; }
+  .assessment-view-record .sentence-number,
+  .assessment-view-review .sentence-number { display: none; }
+  .assessment-view-record .sentence-row p,
+  .assessment-view-review .sentence-row p { padding: 0; }
+  .assessment-view-record .reading-copy .eyebrow,
+  .assessment-view-review .reading-copy .eyebrow { display: none; }
+
+  .assessment-view-record .studio-panel,
+  .assessment-view-review .studio-panel {
+    height: 281px;
+    min-height: 281px;
+  }
+
+  .assessment-view-record .studio-panel-capture .studio-content {
+    gap: 0;
+    padding: 30px 24px 18px;
+    overflow: hidden;
+  }
+
+  .assessment-view-record .mic-orb-slot,
+  .assessment-view-record .mic-orb {
+    width: 100px;
+    height: 100px;
+    margin: 0;
+  }
+
+  .assessment-view-record .studio-panel-capture .recording-pill,
+  .assessment-view-record .studio-panel-capture .paused-pill,
+  .assessment-view-record .studio-panel-capture .recording-ready-pill { display: none; }
+  .assessment-view-record .recording-time { margin: 8px 0 0; padding: 0; font-size: 28px; line-height: 1.2; }
+  .assessment-view-record .recording-control-group { flex: 0 0 auto; margin-top: 12px; }
+  .assessment-view-record .recording-actions { gap: 24px; }
+  .assessment-view-record .round-action { width: 56px; height: 56px; border-width: 5px; }
+  .assessment-view-record .recording-labels { grid-template-columns: repeat(3, 56px); gap: 24px; margin-top: 6px; font-size: 12px; }
+
+  .assessment-view-review .studio-panel-review .studio-content {
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 30px 20px 18px;
+    overflow: hidden;
+  }
+
+  .assessment-view-review .review-heading h2 { font-size: 16px; line-height: 20px; }
+  .assessment-view-review .review-heading p { margin-top: 4px; font-size: 12px; text-align: center; }
+  .assessment-view-review .review-player-actions { flex: 0 0 auto; gap: 14px; padding: 0; }
+  .assessment-view-review .audio-review-row { min-height: 40px; padding: 0; border-radius: 0; background: transparent; }
+  .assessment-view-review .audio-play-button { width: 32px; height: 32px; }
+  .assessment-view-review .audio-play-button img { width: 16px; height: 16px; }
+  .assessment-view-review .audio-duration { font-size: 12px; }
+  .assessment-view-review .review-actions { flex-direction: row; gap: 8px; }
+  .assessment-view-review .review-actions .secondary-button,
+  .assessment-view-review .review-actions .primary-button { min-height: 38px; font-size: 14px; }
+  .assessment-view-review .review-actions .secondary-button img,
+  .assessment-view-review .review-actions .primary-button img { width: 14px; height: 14px; }
+  .assessment-view-review .privacy-note { min-height: 48px; padding: 10px 12px; border-radius: 16px; font-size: 10px; }
+  .assessment-view-review .privacy-note img { width: 12px; height: 12px; }
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

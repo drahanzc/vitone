@@ -35,6 +35,8 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
   onBackToOverview: () => void
 }) {
   const readingCardRef = useRef<HTMLElement | null>(null)
+  const passageSummaryRef = useRef<HTMLDivElement | null>(null)
+  const previewCopyRef = useRef<HTMLDivElement | null>(null)
   const passageListRef = useRef<HTMLDivElement | null>(null)
   const readingCopyRefs = useRef<Array<HTMLElement | null>>([])
   const activeSentenceRef = useRef<HTMLDivElement | null>(null)
@@ -67,6 +69,8 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
 
   useEffect(() => {
     passageListRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    if (view === 'overview') passageSummaryRef.current?.scrollTo({ top: 0, left: 0 })
+    if (view === 'preview') previewCopyRef.current?.scrollTo({ top: 0, left: 0 })
   }, [captureId, view])
 
   useEffect(() => {
@@ -121,7 +125,7 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
     return (
       <section className="passage-card" aria-labelledby="passage-title">
         <img className="passage-art" src={PASSAGE_ART} alt="Illustration of a bright new apartment" />
-        <div className="passage-summary">
+        <div className="passage-summary" ref={passageSummaryRef}>
           <div className="passage-summary-copy">
             <h1 id="passage-title">{link.passage.title}</h1>
             <span className="context-pill context-pill-reading">Reading Context</span>
@@ -141,7 +145,7 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
             <span aria-hidden="true" className='mr-1'>←</span>Back</button>
           <span className="context-pill">Preview Passage</span>
         </div>
-        <div className="preview-copy">
+        <div className="preview-copy" ref={previewCopyRef}>
           <h1 id="preview-title">{link.passage.title}</h1>
           <p>{link.passage.text}</p>
         </div>

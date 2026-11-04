@@ -27,7 +27,7 @@ export function HomePage() {
         <section className="home-card">
           <div className="home-copy">
             <span className="eyebrow">Pronunciation assessment</span>
-            <h1>Practice your reading. <span className="home-heading-nowrap">Understand your progress.</span></h1>
+            <h1>Measure your pronunciation. Master your speech.</h1>
             <p>Open the assessment link shared by your English center to begin. You do not need to create an account.</p>
             <form className="link-entry" onSubmit={openAssessment}>
               <label htmlFor="assessment-link">Assessment link</label>

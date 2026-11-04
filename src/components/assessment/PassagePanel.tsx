@@ -178,7 +178,7 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
               key={reading}
               ref={element => { readingCopyRefs.current[reading - 1] = element }}
             >
-              <span className="eyebrow">{reading === 1 ? 'Reading 1 of 2' : 'Reading 2 of 2 — read it again'}</span>
+              {view === "record" && <span className="eyebrow">{reading === 1 ? 'Reading 1 of 2' : 'Reading 2 of 2 — read it again'}</span>}
               {sentences.map((sentence, index) => {
                 const isActiveSentence = isCurrentReading && activeSentenceIndex === index
                 const partWordIndices = partProgressWordIndices(sentence.parts)

@@ -634,9 +634,12 @@
   font-weight: 500;
 }
 
-.start-button span {
-  font-size: 16px;
+.start-button img {
+  width: 16px;
+  height: 16px;
 }
+
+.studio-instructions-mobile { display: none; }
 
 .advice-cards {
   display: grid;
@@ -884,6 +887,8 @@
   font-variant-numeric: tabular-nums;
 }
 
+.submit-label-mobile { display: none; }
+
 .review-actions {
   display: flex;
   width: 100%;
@@ -988,7 +993,6 @@
 }
 
 .home-copy h1 { max-width: none; font-size: clamp(18px, 4.5vw, 56px); }
-.home-heading-nowrap { white-space: nowrap; }
 
 .home-copy > p,
 .message-card > p,
@@ -1033,6 +1037,17 @@ input:not([type='checkbox']):focus {
   border-color: #8bb2f7;
   box-shadow: 0 0 0 3px rgb(0 65 195 / 10%);
 }
+
+.link-entry-row input {
+  border-color: #9ba6b7;
+  background: #f8faff;
+}
+
+.link-entry-row input:focus {
+  border-color: var(--blue);
+}
+
+.link-entry-row input::placeholder { color: #59677a; opacity: 1; }
 
 .message-card,
 .waiting-card {
@@ -1608,10 +1623,24 @@ input:focus-visible {
   .assessment-view-overview .context-pill { min-height: 28px; padding: 6px 10px; font-size: 12px; }
   .assessment-view-overview .text-button { flex: 0 0 auto; font-size: 14px; }
 
+  .assessment-main.assessment-view-preview,
+  .assessment-main.assessment-view-record,
+  .assessment-main.assessment-view-review {
+    /* Reserve the mobile header (104px) and app bottom padding (24px). */
+    height: calc(100dvh - 128px);
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  .assessment-view-preview .assessment-grid {
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
   .assessment-view-preview .preview-card {
     position: relative;
-    height: 407px;
-    min-height: 407px;
+    height: auto;
+    min-height: 0;
     padding: 58px 24px 24px;
   }
 
@@ -1626,10 +1655,10 @@ input:focus-visible {
   .assessment-view-preview .back-link { font-size: 14px; }
   .assessment-view-preview .context-pill { min-height: 28px; padding: 6px 10px; font-size: 12px; }
   .assessment-view-preview .preview-copy h1 { margin-bottom: 8px; font-size: 20px; line-height: 25px; }
-  .assessment-view-preview .preview-copy p { font-size: 13px; line-height: 1.55; text-align: left; }
+  .assessment-view-preview .preview-copy p { font-size: 13px; line-height: 1.55; text-align: justify; }
 
   .assessment-view-preview .studio-panel {
-    height: 169px;
+    height: auto;
     min-height: 169px;
   }
 
@@ -1657,6 +1686,20 @@ input:focus-visible {
     margin: 0;
   }
 
+  .assessment-view-preview .mic-orb {
+    box-shadow: inset 0 0 32.64px 19.2px #fff, 0 0 102px rgb(0 0 0 / 4%), 0 0 51px 18px #fff;
+  }
+
+  .assessment-view-preview .mic-orb::before {
+    top: -55.048px;
+    left: -69.448px;
+    width: 229.768px;
+    height: 229.768px;
+  }
+
+  .assessment-view-preview .mic-orb::after { content: none; }
+  .assessment-view-preview .mic-orb img { width: 37.333px; height: 37.333px; }
+
   .assessment-view-preview .studio-ready-copy {
     min-width: 0;
     flex: 1 1 0;
@@ -1666,15 +1709,15 @@ input:focus-visible {
 
   .assessment-view-preview .studio-ready-copy h2 { font-size: 16px; line-height: 20px; }
   .assessment-view-preview .studio-ready-copy .studio-instructions {
-    display: -webkit-box;
-    overflow: hidden;
     font-size: 12px;
+    font-weight: 400;
     line-height: 1.2;
     text-align: left;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
-  .assessment-view-preview .start-button { width: auto; min-height: 38px; padding: 10px 16px; font-size: 14px; }
+  .assessment-view-preview .studio-instructions-full { display: none; }
+  .assessment-view-preview .studio-instructions-mobile { display: inline; }
+  .assessment-view-preview .start-button { width: auto; min-height: 38px; margin-top: 8px; gap: 8px; padding: 10px 16px; font-size: 14px; }
+  .assessment-view-preview .start-button img { width: 10px; height: 10px; }
   .assessment-view-preview .advice-cards { display: none; }
 
   .assessment-view-record .reading-card,
@@ -1684,24 +1727,39 @@ input:focus-visible {
     padding: 22px 24px;
   }
 
+  .assessment-view-record .assessment-grid,
+  .assessment-view-review .assessment-grid {
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) 281px;
+  }
+
+  .assessment-view-review .assessment-grid { grid-template-rows: minmax(0, 1fr) 284px; }
+  .assessment-view-record .reading-card,
+  .assessment-view-review .reading-card { height: auto; min-height: 0; }
+
   .assessment-view-record .reading-card-top,
   .assessment-view-review .reading-card-top { display: none; }
   .assessment-view-record .reading-copy,
   .assessment-view-review .reading-copy { gap: 14px; padding-bottom: 24px; }
   .assessment-view-record .sentence-row,
-  .assessment-view-review .sentence-row { grid-template-columns: 1fr; gap: 0; font-size: 15px; line-height: 1.28; text-align: center; }
+  .assessment-view-review .sentence-row,
+  .assessment-view-record .sentence-row.speech-sentence-active,
+  .assessment-view-review .sentence-row.speech-sentence-active { grid-template-columns: minmax(0, 1fr); gap: 0; font-size: 15px; line-height: 1.28; text-align: justify; }
   .assessment-view-record .sentence-number,
   .assessment-view-review .sentence-number { display: none; }
   .assessment-view-record .sentence-row p,
   .assessment-view-review .sentence-row p { padding: 0; }
   .assessment-view-record .reading-copy .eyebrow,
-  .assessment-view-review .reading-copy .eyebrow { display: none; }
+  .assessment-view-review .reading-copy .eyebrow { display: block; }
+  .assessment-view-review .reading-copy { gap: 20px; }
+  .assessment-view-review .sentence-row { font-size: 14px; text-align: justify; }
 
   .assessment-view-record .studio-panel,
   .assessment-view-review .studio-panel {
     height: 281px;
     min-height: 281px;
   }
+  .assessment-view-review .studio-panel { height: 284px; min-height: 284px; }
 
   .assessment-view-record .studio-panel-capture .studio-content {
     gap: 0;
@@ -1716,36 +1774,60 @@ input:focus-visible {
     margin: 0;
   }
 
+  .assessment-view-record .mic-orb {
+    box-shadow: inset 0 0 27.2px 16px #fff, 0 0 85px rgb(0 0 0 / 4%), 0 0 42.5px 15px #fff;
+  }
+
+  .assessment-view-record .mic-orb::before {
+    top: -22.5px;
+    left: -22.5px;
+    width: 144.727px;
+    height: 144.727px;
+  }
+
+  .assessment-view-record .mic-orb::after { content: none; }
+  .assessment-view-record .mic-orb img { width: 31.111px; height: 31.111px; }
+  .assessment-view-record .listening-dots { gap: 2.5px; }
+  .assessment-view-record .listening-dots i { width: 5px; height: 5px; }
+
   .assessment-view-record .studio-panel-capture .recording-pill,
   .assessment-view-record .studio-panel-capture .paused-pill,
   .assessment-view-record .studio-panel-capture .recording-ready-pill { display: none; }
   .assessment-view-record .recording-time { margin: 8px 0 0; padding: 0; font-size: 28px; line-height: 1.2; }
   .assessment-view-record .recording-control-group { flex: 0 0 auto; margin-top: 12px; }
   .assessment-view-record .recording-actions { gap: 24px; }
-  .assessment-view-record .round-action { width: 56px; height: 56px; border-width: 5px; }
-  .assessment-view-record .recording-labels { grid-template-columns: repeat(3, 56px); gap: 24px; margin-top: 6px; font-size: 12px; }
+  .assessment-view-record .round-action { width: 58px; height: 58px; border-width: 5px; padding: 0; }
+  .assessment-view-record .round-action img { width: 20px; height: 20px; }
+  .assessment-view-record .round-restart img { width: 15px; height: auto; }
+  .assessment-view-record .recording-labels { grid-template-columns: repeat(3, 58px); gap: 24px; margin-top: 4px; font-size: 12px; line-height: 15px; }
+  .assessment-view-record .recording-labels span { white-space: nowrap; }
 
   .assessment-view-review .studio-panel-review .studio-content {
-    justify-content: flex-start;
-    gap: 14px;
-    padding: 30px 20px 18px;
-    overflow: hidden;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 32px 20px 20px;
+    overflow-y: auto;
   }
 
   .assessment-view-review .review-heading h2 { font-size: 16px; line-height: 20px; }
-  .assessment-view-review .review-heading p { margin-top: 4px; font-size: 12px; text-align: center; }
-  .assessment-view-review .review-player-actions { flex: 0 0 auto; gap: 14px; padding: 0; }
-  .assessment-view-review .audio-review-row { min-height: 40px; padding: 0; border-radius: 0; background: transparent; }
+  .assessment-view-review .review-heading p { margin-top: 4px; font-size: 12px; line-height: 1.2; text-align: center; }
+  .assessment-view-review .review-player-actions { flex: 0 0 auto; gap: 16px; padding: 0; }
+  .assessment-view-review .review-player-actions > div:not(.review-actions) .audio-review-row,
+  .assessment-view-review .audio-review-row { min-height: 48px; gap: 8px; padding: 0; border-radius: 0; background: transparent; }
   .assessment-view-review .audio-play-button { width: 32px; height: 32px; }
   .assessment-view-review .audio-play-button img { width: 16px; height: 16px; }
+  .assessment-view-review .waveform { height: 20px; gap: 1.32px; }
+  .assessment-view-review .waveform span { width: 1.32px; flex-basis: 1.32px; max-height: 19px; }
   .assessment-view-review .audio-duration { font-size: 12px; }
   .assessment-view-review .review-actions { flex-direction: row; gap: 8px; }
   .assessment-view-review .review-actions .secondary-button,
-  .assessment-view-review .review-actions .primary-button { min-height: 38px; font-size: 14px; }
+  .assessment-view-review .review-actions .primary-button { flex: 1 1 0; min-height: 38px; padding: 10px 8px; gap: 8px; font-size: 14px; }
   .assessment-view-review .review-actions .secondary-button img,
-  .assessment-view-review .review-actions .primary-button img { width: 14px; height: 14px; }
-  .assessment-view-review .privacy-note { min-height: 48px; padding: 10px 12px; border-radius: 16px; font-size: 10px; }
-  .assessment-view-review .privacy-note img { width: 12px; height: 12px; }
+  .assessment-view-review .review-actions .primary-button img { width: 12px; height: 12px; }
+  .assessment-view-review .submit-label-full { display: none; }
+  .assessment-view-review .submit-label-mobile { display: inline; }
+  .assessment-view-review .privacy-note { min-height: 48px; flex: 0 0 auto; align-items: flex-start; gap: 4px; padding: 10px; border-radius: 16px; font-size: 9px; }
+  .assessment-view-review .privacy-note img { width: 12px; height: 12px; flex: 0 0 auto; }
 }
 
 

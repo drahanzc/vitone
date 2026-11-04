@@ -125,12 +125,12 @@ export function StudioPanel({
                 Record again <img src="/assets/replay-muted.svg" alt="" />
               </button>
               <button className="primary-button" type="button" onClick={onSubmit} disabled={busy || !clip || !clipUrl}>
-                {busy ? 'Submitting…' : 'Submit Recording'} <img src="/assets/520-4772.svg" alt="" />
+                {busy ? 'Submitting…' : <><span className="submit-label-full">Submit Recording</span><span className="submit-label-mobile">Submit</span></>} <img src="/assets/520-4772.svg" alt="" />
               </button>
             </div>
           </div>
           {error ? <p className="inline-error" role="alert">{error}</p> : null}
-          <div className="privacy-note"><img src="/assets/lock.svg" alt="" /><span>Your recording will be securely submitted for assessment. You won't be able to edit it after submitting.</span></div>
+          <div className="privacy-note"><img src="/assets/lock.svg" alt="" /><span>Your recording will be securely submitted for assessment. You will not be able to edit it after submitting.</span></div>
         </div>
       ) : (
         <div className={`studio-content ${recordingState === 'idle' && view !== 'record' ? 'studio-content-ready' : 'studio-content-capture'}`}>
@@ -139,9 +139,11 @@ export function StudioPanel({
               <div className="mic-orb-slot"><MicOrb /></div>
               <div className="studio-ready-copy">
                 <h2>Ready to Record?</h2>
-                <p className="studio-instructions">Please read aloud clearly. Read the passage twice in one recording. After the first reading, stay recording and remain silent for 3–5 seconds while the passage moves to Reading 2. Then read it again. You may pause and resume if you need a break.
+                <p className="studio-instructions">
+                  <span className="studio-instructions-full">Please read aloud clearly. Read the passage twice in one recording. After the first reading, stay recording and remain silent for 3–5 seconds while the passage moves to Reading 2. Then read it again. You may pause and resume if you need a break.</span>
+                  <span className="studio-instructions-mobile">Please read aloud clearly.<br />You will be asked to read the passage twice.</span>
                 </p>
-                <button className="primary-button start-button" type="button" onClick={onPrepare}>Start <span aria-hidden="true">▶</span></button>
+                <button className="primary-button start-button" type="button" onClick={onPrepare}>Start <img src="/assets/play.svg" alt="" /></button>
               </div>
               {error ? <p className="inline-error" role="alert">{error}</p> : null}
               <AdviceCards />
@@ -165,7 +167,7 @@ export function StudioPanel({
                       : <button className="round-action round-pause" type="button" onClick={onResume} aria-label="Resume recording"><img src="/assets/play.svg" alt="" /></button>}
                   <button className="round-action round-finish" type="button" onClick={onFinish} aria-label="Finish" disabled={recordingState === 'idle'}><img src="/assets/student-recording/finish.svg" alt="" /></button>
                 </div>
-                <div className="recording-labels"><span>Restart</span><span>{recordingState === 'idle' ? recordingStarting ? 'Starting…' : 'Start' : recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>Finish</span></div>
+                <div className="recording-labels"><span>Start over</span><span>{recordingState === 'idle' ? recordingStarting ? 'Starting…' : 'Start' : recordingState === 'recording' ? 'Pause' : 'Resume'}</span><span>Finish</span></div>
               </div>
               {error ? <p className="inline-error" role="alert">{error}</p> : null}
             </>

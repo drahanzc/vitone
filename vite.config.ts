@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         '/me': { target: apiTarget, changeOrigin: true },
         '/passages': { target: apiTarget, changeOrigin: true },
         '/public': { target: apiTarget, changeOrigin: true },
+        '/reports': { target: apiTarget, changeOrigin: true },
         '/ready': { target: apiTarget, changeOrigin: true },
         '/v1': { target: apiTarget, changeOrigin: true },
       },

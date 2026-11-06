@@ -1930,6 +1930,36 @@ input:focus-visible {
 }
 
 
+.overview-voice-actions { display: flex; width: 100%; flex: 0 0 auto; gap: 12px; }
+.overview-upload, .overview-record { display: flex; min-width: 0; min-height: 97px; flex: 1 1 0; align-items: center; justify-content: center; gap: 16px; padding: 20px 32px 20px 20px; border: 0; border-radius: 32px; font: inherit; cursor: pointer; }
+.overview-upload { background: rgb(228 228 228 / 10%); box-shadow: inset 0 0 27.2px 16px #fff, 0 0 85px rgb(0 0 0 / 4%); text-align: left; }
+.overview-upload:disabled { cursor: wait; opacity: .6; }
+.overview-upload-icon, .overview-record-icon { display: grid; width: 48px; height: 48px; flex: 0 0 48px; place-items: center; border-radius: 50%; }
+.overview-upload-icon { background: #148fff; }
+.overview-record-icon { background: var(--surface); }
+.overview-upload-icon img, .overview-record-icon img { width: 28px; height: 28px; }
+.overview-upload-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.overview-upload-copy strong { color: var(--ink); font-size: 18px; font-weight: 500; }
+.overview-upload-copy > span { color: var(--muted); font-size: 12px; line-height: 1.25; }
+.overview-record { background: var(--blue); color: var(--surface); font-size: 18px; font-weight: 500; }
+.assessment-view-overview .studio-content-ready { gap: 32px; padding: 56px 40px 40px; }
+.assessment-view-overview .studio-ready-copy { gap: 16px; }
+.review-heading p { overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .assessment-view-overview .studio-panel { display: flex; height: auto; min-height: 0; }
+  .assessment-view-overview .studio-content-ready { gap: 20px; padding: 24px; }
+  .assessment-view-overview .mic-orb-slot, .assessment-view-overview .mic-orb { width: 120px; height: 120px; margin: 0; }
+  .assessment-view-overview .mic-orb img { width: 38px; height: 38px; }
+  .assessment-view-overview .studio-ready-copy { gap: 8px; }
+  .assessment-view-overview .studio-ready-copy h2 { font-size: 20px; }
+  .assessment-view-overview .studio-instructions-full { display: none; }
+  .assessment-view-overview .studio-instructions-mobile { display: inline; }
+  .assessment-view-overview .advice-cards { display: none; }
+  .overview-voice-actions { flex-direction: column; }
+  .overview-upload, .overview-record { min-height: 80px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }

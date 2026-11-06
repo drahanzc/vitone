@@ -115,5 +115,8 @@ describe('reading audio composition helpers', () => {
 
   test('uses the WAV filename for the normalized submission blob', () => {
     expect(audioFilename(new Blob([], { type: 'audio/wav' }))).toBe('recording.wav')
+    expect(audioFilename(new Blob([], { type: 'audio/mpeg' }))).toBe('recording.mp3')
+    expect(audioFilename(new Blob([], { type: 'video/quicktime' }))).toBe('recording.mov')
+    expect(audioFilename(new Blob([], { type: 'video/mp4' }))).toBe('recording.mp4')
   })
 })

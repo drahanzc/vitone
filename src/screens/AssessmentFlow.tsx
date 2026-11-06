@@ -37,6 +37,10 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   const [clip, setClip] = useState<Blob | null>(null)
   const [clipUrl, setClipUrl] = useState<string | null>(null)
   const [clipError, setClipError] = useState('')
+  const [uploadedName, setUploadedName] = useState('')
+  const [checkingUpload, setCheckingUpload] = useState(false)
+  const uploadInputRef = useRef<HTMLInputElement | null>(null)
+  const uploadRequestRef = useRef(0)
   const [assessmentToken, setAssessmentToken] = useState('')
   const recorderRef = useRef<MediaRecorder | null>(null)
   const retryingRecordingRef = useRef(false)
@@ -166,6 +170,9 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     setRecordingState('idle')
     setClip(null)
     setClipUrl(null)
+    setUploadedName('')
+    uploadRequestRef.current += 1
+    setCheckingUpload(false)
     setElapsed(0)
     captureFailedRef.current = false
     captureFailureMessageRef.current = null
@@ -385,6 +392,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
         clipUrlRef.current = nextUrl
         setClip(nextClip)
         setClipUrl(nextUrl)
+        setUploadedName('')
         setClipError('')
         navigateToView('review')
       }
@@ -454,6 +462,9 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
   }
 
   function clearRecording() {
+    uploadRequestRef.current += 1
+    setCheckingUpload(false)
+    setUploadedName('')
     setClip(null)
     setClipError('')
     if (clipUrlRef.current) URL.revokeObjectURL(clipUrlRef.current)
@@ -492,6 +503,56 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     setFlowError('')
     setAssessmentToken('')
     clearRecording()
+  }
+
+  async function selectUpload(file: File) {
+    if (!link || busy) return
+    const requestId = ++uploadRequestRef.current
+    const startingRoute = routeUrlRef.current
+    const extension = file.name.split('.').pop()?.toLowerCase()
+    const types: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', mp4: file.type.startsWith('audio/') ? 'audio/mp4' : 'video/mp4', mov: 'video/quicktime' }
+    const type = extension ? types[extension] : undefined
+    setFlowError('')
+    if (!type || file.size === 0 || file.size > link.limits.max_audio_bytes) {
+      setFlowError(!type ? 'Choose an MP3, WAV, MP4, or MOV file.' : file.size === 0 ? 'The selected file is empty.' : 'The selected file exceeds the allowed size: ' + (link.limits.max_audio_bytes / 1024 / 1024).toFixed(1) + ' MB.')
+      return
+    }
+    setCheckingUpload(true)
+    const url = URL.createObjectURL(file)
+    const media = document.createElement('video')
+    try {
+      const duration = await new Promise<number>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('Unable to read the file duration.')), 10000)
+        media.onloadedmetadata = () => { window.clearTimeout(timeout); resolve(media.duration) }
+        media.onerror = () => { window.clearTimeout(timeout); reject(new Error('This browser cannot read the selected file.')) }
+        media.preload = 'metadata'
+        media.src = url
+      })
+      if (requestId !== uploadRequestRef.current || startingRoute !== routeUrlRef.current) return
+      const minimum = link.required_readings * MIN_AUDIO_SECONDS_PER_READING
+      if (!Number.isFinite(duration) || duration < minimum || duration > link.limits.max_audio_seconds) {
+        throw new Error(`The recording must be between ${minimum} and ${link.limits.max_audio_seconds} seconds long.`)
+      }
+      if (clipUrlRef.current) URL.revokeObjectURL(clipUrlRef.current)
+      const nextClip = new Blob([file], { type })
+      const nextUrl = URL.createObjectURL(nextClip)
+      clipUrlRef.current = nextUrl
+      setClip(nextClip)
+      setClipUrl(nextUrl)
+      setUploadedName(file.name)
+      setElapsed(Math.floor(duration))
+      setClipError('')
+      navigateToView('review')
+    } catch (error) {
+      if (requestId === uploadRequestRef.current) setFlowError(errorMessage(error))
+    } finally {
+      media.onloadedmetadata = null
+      media.onerror = null
+      media.removeAttribute('src')
+      media.load()
+      URL.revokeObjectURL(url)
+      if (requestId === uploadRequestRef.current) setCheckingUpload(false)
+    }
   }
 
   function openSubmit() {
@@ -553,6 +614,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   return (
     <div className="student-app" data-capture-id={captureId} onClickCapture={guardAssessmentLink}>
+      <input ref={uploadInputRef} type="file" accept=".mp3,.wav,.mp4,.mov,audio/mpeg,audio/wav,audio/mp4,video/mp4,video/quicktime" hidden onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void selectUpload(file) }} />
       <StudentHeader activeStep={activeStep} showInfo />
       <main className={`assessment-main assessment-view-${view} ${showReading ? 'reading-stage' : ''}`}>
         <div className="assessment-grid">
@@ -574,6 +636,10 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
             busy={busy}
             clip={clip}
             clipUrl={clipUrl}
+            uploadedName={uploadedName}
+            uploadBusy={checkingUpload}
+            onReplaceUpload={() => uploadInputRef.current?.click()}
+            onUpload={() => uploadInputRef.current?.click()}
             onPrepare={() => navigateToView('record')}
             onBegin={() => { void beginRecording() }}
             onPause={pauseRecording}

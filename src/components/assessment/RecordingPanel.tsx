@@ -82,6 +82,10 @@ export function StudioPanel({
   busy,
   clip,
   clipUrl,
+  uploadedName,
+  uploadBusy,
+  onReplaceUpload,
+  onUpload,
   onPrepare,
   onBegin,
   onPause,
@@ -98,6 +102,10 @@ export function StudioPanel({
   busy: boolean
   clip: Blob | null
   clipUrl: string | null
+  uploadedName: string
+  uploadBusy: boolean
+  onReplaceUpload: () => void
+  onUpload: () => void
   onPrepare: () => void
   onBegin: () => void
   onPause: () => void
@@ -116,15 +124,15 @@ export function StudioPanel({
         </div>
       ) : view === 'review' ? (
         <div className="studio-content review-content">
-          <div className="review-heading"><h2>Review your recording</h2>
-            <p>Listen to the complete recording before submitting.</p></div>
+          <div className="review-heading"><h2>{uploadedName ? 'Review your file' : 'Review your recording'}</h2>
+            <p>{uploadedName || 'Listen to the complete recording before submitting.'}</p></div>
           <div className="review-player-actions">
             {clipUrl ? <RecordingPlayback clipUrl={clipUrl} durationSeconds={elapsed} /> : null}
             <div className="review-actions">
-              <button className="secondary-button" type="button" onClick={onRetryRecording} disabled={busy || !clip}>
-                Record again <img src="/assets/replay-muted.svg" alt="" />
+              <button className="secondary-button" type="button" onClick={uploadedName ? onReplaceUpload : onRetryRecording} disabled={busy || uploadBusy || !clip}>
+                {uploadBusy ? 'Checking file…' : uploadedName ? 'Replace file' : 'Record again'} <img src="/assets/replay-muted.svg" alt="" />
               </button>
-              <button className="primary-button" type="button" onClick={onSubmit} disabled={busy || !clip || !clipUrl}>
+              <button className="primary-button" type="button" onClick={onSubmit} disabled={busy || uploadBusy || !clip || !clipUrl}>
                 {busy ? 'Submitting…' : <><span className="submit-label-full">Submit Recording</span><span className="submit-label-mobile">Submit</span></>} <img src="/assets/520-4772.svg" alt="" />
               </button>
             </div>
@@ -143,8 +151,17 @@ export function StudioPanel({
                   <span className="studio-instructions-full">Please read aloud clearly. Read the passage twice in one recording. After the first reading, stay recording and remain silent for 3–5 seconds while the passage moves to Reading 2. Then read it again. You may pause and resume if you need a break.</span>
                   <span className="studio-instructions-mobile">Please read aloud clearly.<br />You will be asked to read the passage twice.</span>
                 </p>
-                <button className="primary-button start-button" type="button" onClick={onPrepare}>Start <img src="/assets/play.svg" alt="" /></button>
+                {view !== 'overview' ? <button className="primary-button start-button" type="button" onClick={onPrepare}>Start <img src="/assets/play.svg" alt="" /></button> : null}
               </div>
+              {view === 'overview' ? <div className="overview-voice-actions">
+                <button className="overview-upload" type="button" onClick={onUpload} disabled={uploadBusy}>
+                  <span className="overview-upload-icon"><img src="/assets/794-4134.svg" alt="" /></span>
+                  <span className="overview-upload-copy"><strong>{uploadBusy ? 'Checking file…' : 'Upload recording'}</strong><span>Supported format: MP3, WAV, MP4, MOV</span></span>
+                </button>
+                <button className="overview-record" type="button" onClick={onPrepare}>
+                  <span className="overview-record-icon"><img src="/assets/794-4144.svg" alt="" /></span><span>Start Recording</span>
+                </button>
+              </div> : null}
               {error ? <p className="inline-error" role="alert">{error}</p> : null}
               <AdviceCards />
             </>

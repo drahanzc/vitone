@@ -340,6 +340,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "reports/editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["editor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "reports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["preview_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -456,6 +488,9 @@ export interface components {
             is_new_account: boolean;
             refresh_token: string;
         };
+        BTreeMap: {
+            [key: string]: string[];
+        };
         ConsentCopy: {
             text: string;
             version: string;
@@ -471,7 +506,9 @@ export interface components {
         CreateLinkedAssessmentRequest: {
             /**
              * Format: binary
-             * @description Original recording containing all required readings.
+             * @description Original WAV, WebM, MP4, Ogg, MP3 (audio/mpeg), or MOV (video/quicktime)
+             *     recording containing all required readings. MOV must contain an audio track;
+             *     video is ignored during audio processing.
              * @example assessment.webm
              */
             audio: string;
@@ -818,8 +855,20 @@ export interface components {
         RenameCenterRequest: {
             name: string;
         };
+        /** @description An area-level band, pooled from its scored percentage checks. */
+        ReportArea: {
+            area: components["schemas"]["ReportAreaKind"];
+            band?: components["schemas"]["ScoreBand"] | null;
+        };
+        /**
+         * @description Stable presentation areas for the pronunciation report.
+         * @enum {string}
+         */
+        ReportAreaKind: "VOWELS" | "CONSONANTS" | "FINAL_AND_EXTRA_SOUNDS" | "STRESS_AND_RHYTHM" | "INTONATION";
         /** @description Versioned, provenance-bound report content with one row per rubric item. */
         ReportContent: {
+            /** @description Absent on historical snapshots created before area aggregation. */
+            areas?: components["schemas"]["ReportArea"][] | null;
             items: components["schemas"]["ReportItem"][];
             passage_content_hash: string;
             passage_id: string;
@@ -842,6 +891,14 @@ export interface components {
         };
         /** @enum {string} */
         ReportItemStatus: "SCORED" | "UNSCORED";
+        /** @description Mock data only: nothing is read from or written to an assessment. */
+        ReportPreviewRequest: {
+            /** @description Optional mock reference examples keyed by item ID; never treated as findings. */
+            examples?: components["schemas"]["BTreeMap"];
+            /** @example Example learner */
+            learner_reference: string;
+            report: components["schemas"]["AssessmentReport"];
+        };
         /** @description A target-level reason included when report coverage is incomplete. */
         ReportTargetBlocker: {
             outcome: string;
@@ -1334,7 +1391,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Link disabled or expired */
+            /** @description Link disabled, expired, or requires an unsupported reading count */
             410: {
                 headers: {
                     [name: string]: unknown;
@@ -1390,7 +1447,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Link is disabled or expired */
+            /** @description Link is disabled, expired, or requires an unsupported reading count */
             410: {
                 headers: {
                     [name: string]: unknown;
@@ -1862,7 +1919,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description PDF renderer is unavailable */
+            /** @description PDF renderer is unavailable or busy; retry later */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2119,6 +2176,86 @@ export interface operations {
             };
             /** @description Center authentication required */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    editor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Login shell for the server-side preview editor; rendering requires center login */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+        };
+    };
+    preview_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Self-contained HTML preview; no persistence or Chromium process */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Invalid report JSON or inconsistent mock results */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Center admin login required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Preview JSON exceeds 1 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Server report assets could not be loaded */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -127,7 +127,7 @@ export function StudioPanel({
           <div className="review-heading"><h2>{uploadedName ? 'Review your file' : 'Review your recording'}</h2>
             <p>{uploadedName || 'Listen to the complete recording before submitting.'}</p></div>
           <div className="review-player-actions">
-            {clipUrl ? <RecordingPlayback clipUrl={clipUrl} durationSeconds={elapsed} /> : null}
+            {clipUrl ? <RecordingPlayback key={clipUrl} clipUrl={clipUrl} durationSeconds={elapsed} /> : null}
             <div className="review-actions">
               <button className="secondary-button" type="button" onClick={uploadedName ? onReplaceUpload : onRetryRecording} disabled={busy || uploadBusy || !clip}>
                 {uploadBusy ? 'Checking file…' : uploadedName ? 'Replace file' : 'Record again'} <img src="/assets/replay-muted.svg" alt="" />
@@ -153,7 +153,7 @@ export function StudioPanel({
                 </p>
                 {view !== 'overview' ? <button className="primary-button start-button" type="button" onClick={onPrepare}>Start <img src="/assets/play.svg" alt="" /></button> : null}
               </div>
-              {view === 'overview' ? <div className="overview-voice-actions">
+              {view === 'overview' || view === 'preview' ? <div className="overview-voice-actions">
                 <button className="overview-upload" type="button" onClick={onUpload} disabled={uploadBusy}>
                   <span className="overview-upload-icon"><img src="/assets/794-4134.svg" alt="" /></span>
                   <span className="overview-upload-copy"><strong>{uploadBusy ? 'Checking file…' : 'Upload recording'}</strong><span>Supported format: MP3, WAV, MP4, MOV</span></span>

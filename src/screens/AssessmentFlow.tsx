@@ -608,7 +608,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     return <div className="student-app"><StudentHeader activeStep={1} /><MessageScreen title="This assessment link isn’t available" message={loadError || 'Check the link and try again, or contact your English center.'} action={<Link className="primary-button button-link" to="/">Back to home</Link>} /></div>
   }
 
-  const activeStep: 1 | 2 | 3 = view === 'overview' || view === 'preview' ? 1 : view === 'record' ? 2 : 3
+  const activeStep: 1 | 2 | 3 = view === 'overview' || view === 'preview' || (view === 'review' && uploadedName) ? 1 : view === 'record' ? 2 : 3
   const showReading = view === 'record' || view === 'review'
   const panelError = flowError || clipError
 
@@ -616,8 +616,12 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     <div className="student-app" data-capture-id={captureId} onClickCapture={guardAssessmentLink}>
       <input ref={uploadInputRef} type="file" accept=".mp3,.wav,.mp4,.mov,audio/mpeg,audio/wav,audio/mp4,video/mp4,video/quicktime" hidden onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void selectUpload(file) }} />
       <StudentHeader activeStep={activeStep} showInfo />
-      <main className={`assessment-main assessment-view-${view} ${showReading ? 'reading-stage' : ''}`}>
+      <main className={`assessment-main assessment-view-${view} ${showReading ? 'reading-stage' : ''} ${view === 'review' && uploadedName ? 'assessment-upload-review' : ''}`}>
         <div className="assessment-grid">
+          {view === 'review' && uploadedName ? <div className="upload-review-passage">
+            <PassagePanel link={link} view="preview" recordingState={recordingState} captureId={captureId} onPreview={() => navigateToView('preview')} onBack={() => navigateToView('preview')} onBackToOverview={backToOverview} />
+          </div> : null}
+          <div className={view === 'review' && uploadedName ? 'upload-review-reading' : 'assessment-passage-wrap'}>
           <PassagePanel
             link={link}
             view={view}
@@ -627,6 +631,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
             onBack={() => navigateToView('overview', true)}
             onBackToOverview={backToOverview}
           />
+          </div>
           <StudioPanel
             view={view}
             recordingStarting={recordingStarting}

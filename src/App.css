@@ -1930,6 +1930,8 @@ input:focus-visible {
 }
 
 
+.assessment-passage-wrap, .upload-review-reading { display: contents; }
+.upload-review-passage, .assessment-view-preview .overview-voice-actions { display: none; }
 .overview-voice-actions { display: flex; width: 100%; flex: 0 0 auto; gap: 12px; }
 .overview-upload, .overview-record { display: flex; min-width: 0; min-height: 97px; flex: 1 1 0; align-items: center; justify-content: center; gap: 16px; padding: 20px 32px 20px 20px; border: 0; border-radius: 32px; font: inherit; cursor: pointer; }
 .overview-upload { background: rgb(228 228 228 / 10%); box-shadow: inset 0 0 27.2px 16px #fff, 0 0 85px rgb(0 0 0 / 4%); text-align: left; }
@@ -1947,7 +1949,40 @@ input:focus-visible {
 .review-heading p { overflow-wrap: anywhere; }
 
 @media (max-width: 760px) {
-  .assessment-view-overview .studio-panel { display: flex; height: auto; min-height: 0; }
+  .home-page .home-main { min-height: 100dvh; padding: 72px 20px 20px; }
+  .home-card { min-height: 644px; gap: 20px; justify-content: flex-end; padding: 20px 20px 40px; border-radius: 40px; }
+  .home-page .home-art { order: -1; width: min(100%, 305px); flex: 0 0 auto; }
+  .home-page .home-illustration-mascot { left: 62.56%; }
+  .home-page .home-illustration-note { left: 56.12%; top: 58.13%; }
+  .home-copy .eyebrow { font-size: 13px; }
+  .home-copy h1 { margin: 12px 0; font-size: 24px; line-height: 1.1; }
+  .home-copy > p { font-size: 14px; line-height: 1.3; }
+  .link-entry-row { flex-direction: column; align-items: center; gap: 20px; }
+  .link-entry-row input { min-height: 56px; padding: 20px; font-size: 16px; }
+  .link-entry-row .primary-button { min-width: 0; min-height: 51px; padding: 16px 32px; font-size: 15px; }
+
+  .assessment-view-preview .studio-panel { min-height: 123px; border: 0; background: transparent; box-shadow: none; }
+  .assessment-view-preview .studio-content-ready { flex-direction: column; align-items: stretch; gap: 8px; padding: 0; overflow: visible; }
+  .assessment-view-preview .mic-orb-slot, .assessment-view-preview .studio-ready-copy, .assessment-view-preview .advice-cards { display: none; }
+  .assessment-view-preview .overview-voice-actions { display: flex; flex-direction: row; }
+  .assessment-view-preview .overview-upload, .assessment-view-preview .overview-record { min-height: 123px; flex-direction: column; gap: 8px; padding: 16px; border-radius: 32px; text-align: center; }
+  .assessment-view-preview .overview-upload-icon, .assessment-view-preview .overview-record-icon { width: 32px; height: 32px; flex-basis: 32px; }
+  .assessment-view-preview .overview-upload-icon img, .assessment-view-preview .overview-record-icon img { width: 19px; height: 19px; }
+  .assessment-view-preview .overview-upload-copy { gap: 2px; text-align: center; }
+  .assessment-view-preview .overview-upload-copy strong, .assessment-view-preview .overview-record { font-size: 15px; }
+  .assessment-view-preview .preview-copy p { font-size: 14px; line-height: 1.5; }
+
+  .assessment-upload-review .upload-review-reading { display: none; }
+  .assessment-upload-review .upload-review-passage { display: contents; }
+  .assessment-upload-review .assessment-grid { grid-template-rows: minmax(0, 1fr) 301px; }
+  .assessment-upload-review .preview-card { position: relative; height: auto; min-height: 0; padding: 58px 24px 24px; }
+  .assessment-upload-review .preview-card-top { position: absolute; top: 20px; right: 24px; left: 24px; padding: 0; }
+  .assessment-upload-review .preview-copy { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .assessment-upload-review .preview-copy h1 { margin-bottom: 8px; font-size: 20px; line-height: 25px; }
+  .assessment-upload-review .preview-copy p { font-size: 14px; line-height: 1.5; }
+  .assessment-upload-review .studio-panel { height: 301px; min-height: 301px; }
+
+  /* .assessment-view-overview .studio-panel { display: flex; height: auto; min-height: 0; } */
   .assessment-view-overview .studio-content-ready { gap: 20px; padding: 24px; }
   .assessment-view-overview .mic-orb-slot, .assessment-view-overview .mic-orb { width: 120px; height: 120px; margin: 0; }
   .assessment-view-overview .mic-orb img { width: 38px; height: 38px; }

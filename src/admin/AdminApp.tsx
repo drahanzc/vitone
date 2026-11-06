@@ -33,7 +33,8 @@ import {
 } from './admin-api'
 import './admin.css'
 import { AdminSidebar, AdminTopbar } from './AdminLayout'
-import { BrandMark, Icon } from './AdminPrimitives'
+import { Icon } from './AdminPrimitives'
+import { HomeIllustration } from '../components/HomeIllustration'
 
 // Authentication is shared by the login page and every protected admin route.
 type CenterAuthValue = {
@@ -115,31 +116,30 @@ export function AdminLoginPage() {
 
   return (
     <main className="admin-login-page">
-      <section className="admin-login-art">
-        <div className="admin-login-brand"><BrandMark /><span>Vitone</span></div>
-        <div className="admin-login-art-copy">
-          <span className="admin-eyebrow">CENTER WORKSPACE</span>
-          <h1>Every reading is a step forward.</h1>
-          <p>Create assessments, share them with learners, and follow their progress.</p>
-        </div>
-        <img className="admin-login-illustration" src="/assets/new-apartment.png" alt="" />
-      </section>
-      <section className="admin-login-panel">
+      <div className="admin-login-art" aria-hidden="true"><HomeIllustration /></div>
+      <section className="admin-login-panel" aria-labelledby="admin-login-title">
         <Link className="admin-student-link" to="/">Student page <Icon name="arrow" /></Link>
         <form className="admin-login-card" onSubmit={submit}>
-          <span className="admin-eyebrow">WELCOME BACK</span>
-          <h2>Sign in to your center</h2>
-          <p>Use the email and password provided for your center account.</p>
-          <label htmlFor="center-email">Email address</label>
-          <input id="center-email" type="email" autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} required maxLength={254} />
-          <label htmlFor="center-password">Password</label>
-          <input id="center-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required />
-          {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
-          <button className="admin-primary-button admin-login-submit" type="submit" disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign in'} <Icon name="arrow" />
-          </button>
+          <div className="admin-login-heading">
+            <span className="admin-login-welcome">Welcome Back 👋</span>
+            <h1 id="admin-login-title">Sign in to your Center</h1>
+            <p>Use the email and password provided for your center account.</p>
+          </div>
+          <div className="admin-login-fields">
+            <div className="admin-login-field">
+              <label htmlFor="center-email">Email address</label>
+              <input id="center-email" type="email" autoComplete="username" placeholder="Example@email.com" value={email} onChange={event => setEmail(event.target.value)} required maxLength={254} />
+            </div>
+            <div className="admin-login-field">
+              <label htmlFor="center-password">Password</label>
+              <input id="center-password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={event => setPassword(event.target.value)} required />
+            </div>
+            {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
+            <button className="admin-primary-button admin-login-submit" type="submit" disabled={busy}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+          </div>
         </form>
-        <p className="admin-login-footnote">Access is provided by your Vitone administrator.</p>
       </section>
     </main>
   )

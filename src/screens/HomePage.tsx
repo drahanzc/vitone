@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { PASSAGE_ART } from '../app/types'
 import { Brand } from '../components/StudentChrome'
+import { HomeIllustration } from '../components/HomeIllustration'
 
 function assessmentTokenFromInput(value: string): string | undefined {
   const segments = value.trim().split('/').filter(Boolean)
@@ -21,23 +21,23 @@ export function HomePage() {
   }
 
   return (
-    <div className="student-app">
-      <header className="student-header home-header"><Brand /><div className="home-header-links"><Link to="/admin/login" className="center-login-link">Center sign in <span aria-hidden="true">→</span></Link><span className="header-context">Student assessment</span></div></header>
+    <div className="student-app home-page">
+      <header className="student-header home-header"><Brand /><div className="home-header-links"><Link to="/admin/login" className="center-login-link">Center sign in <span aria-hidden="true">→</span></Link></div></header>
       <main className="home-main">
         <section className="home-card">
           <div className="home-copy">
             <span className="eyebrow">Pronunciation assessment</span>
-            <h1>Measure your pronunciation. Master your speech.</h1>
-            <p>Open the assessment link shared by your English center to begin. You do not need to create an account.</p>
-            <form className="link-entry" onSubmit={openAssessment}>
-              <label htmlFor="assessment-link">Assessment link</label>
-              <div className="link-entry-row">
-                <input id="assessment-link" value={value} onChange={event => setValue(event.target.value)} placeholder="Paste your assessment link or token" required />
-                <button className="primary-button" type="submit">Open assessment <span aria-hidden="true">→</span></button>
-              </div>
-            </form>
+            <h1>Measure your pronunciation.<br />Master your speech.</h1>
+            <p>Open the assessment link shared by your English center to begin.<br />You do not need to create an account.</p>
           </div>
-          <div className="home-art" aria-hidden="true"><img src={PASSAGE_ART} alt="" /></div>
+          <HomeIllustration />
+          <form className="link-entry" onSubmit={openAssessment}>
+            <label htmlFor="assessment-link">Assessment link</label>
+            <div className="link-entry-row">
+              <input id="assessment-link" value={value} onChange={event => setValue(event.target.value)} placeholder="Paste your assessment link or token" required />
+              <button className="primary-button" type="submit">Open assessment</button>
+            </div>
+          </form>
         </section>
       </main>
     </div>

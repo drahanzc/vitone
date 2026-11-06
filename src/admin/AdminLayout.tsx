@@ -21,7 +21,7 @@ export function AdminSidebar({
   return (
     <aside className={`admin-sidebar ${collapsed ? 'is-collapsed' : ''}`}>
       <div className="admin-sidebar-header">
-        <Link className="admin-brand" to="/admin"><BrandMark /><span>Vitone</span></Link>
+        <Link className="admin-brand" to="/admin"><BrandMark /><span>V-Tone</span></Link>
         <button className="admin-sidebar-toggle" type="button" onClick={onToggle} aria-label={toggleLabel} aria-expanded={!collapsed} title={toggleLabel}>
           <Icon name="sidebar" />
         </button>

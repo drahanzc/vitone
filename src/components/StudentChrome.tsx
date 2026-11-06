@@ -4,11 +4,11 @@ import { BRAND_MARK } from '../app/types'
 
 export function Brand() {
   return (
-    <Link className="brand" to="/" aria-label="Vitone student home">
+    <Link className="brand" to="/" aria-label="V-Tone student home">
       <span className="brand-mark" aria-hidden="true">
         <img src={BRAND_MARK} alt="" />
       </span>
-      <span>Vitone</span>
+      <span>V-Tone</span>
     </Link>
   )
 }
@@ -53,7 +53,7 @@ export function MessageScreen({ title, message, action }: {
   return (
     <main className="message-screen">
       <section className="message-card">
-        <span className="eyebrow">Vitone student</span>
+        <span className="eyebrow">V-Tone student</span>
         <h1>{title}</h1>
         <p>{message}</p>
         {action}

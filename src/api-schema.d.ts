@@ -228,6 +228,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "assessments/{id}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recalculates scoring from saved engine results, replacing the previous report.
+         * @description Only completed or failed submissions owned by the authenticated center with
+         *     successful saved results for every reading are eligible. Provider responses
+         *     and alignments are preserved; only findings, coverage, and the report are
+         *     rebuilt. This job never calls Azure and works without Azure credentials.
+         */
+        post: operations["rerun_linked_assessment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "assessments/{id}/results": {
         parameters: {
             query?: never;
@@ -1969,6 +1992,56 @@ export interface operations {
             };
             /** @description PDF renderer is unavailable or busy; retry later */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    rerun_linked_assessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Student submission ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rescoring queued from saved engine results; previous scoring report is no longer available */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assessment"];
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found in this center */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment or job is unfinished, or saved reading evidence is incomplete */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

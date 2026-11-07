@@ -33,6 +33,14 @@ export function failureReason(code: string | null | undefined): string {
   return 'Analysis could not be completed.'
 }
 
+export type SubmissionFilter = 'all' | 'processing' | 'completed'
+
+export function matchesSubmissionFilter(status: string, filter: SubmissionFilter): boolean {
+  if (filter === 'completed') return status === 'COMPLETED'
+  if (filter === 'processing') return ['CREATED', 'UPLOADING', 'UPLOADED', 'PROCESSING'].includes(status)
+  return true
+}
+
 export function statusStyle(status: string): string {
   if (status === 'COMPLETED' || status === 'ACTIVE') return 'is-good'
   if (status === 'FAILED' || status === 'DISABLED') return 'is-bad'

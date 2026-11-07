@@ -358,9 +358,22 @@
 .admin-results-table .admin-status { gap: 4px; font-size: 13px; line-height: 16px; }
 .admin-results-table .admin-status i { width: 4.5px; height: 4.5px; margin: 0 3.75px; }
 .admin-results-table .admin-status.is-good { color: #4ad26c; }
-.admin-results-table th:last-child, .admin-results-table td:last-child { width: 1%; white-space: nowrap; }
-.admin-failure-reason { display: block; width: 220px; max-width: 40vw; color: #a93b3b; font-size: 12px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
-.admin-report-cell { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: max-content; white-space: normal; }
+.admin-results-table th:nth-child(5), .admin-results-table td:nth-child(5),
+.admin-results-table th:nth-child(6), .admin-results-table td:nth-child(6) { width: 1%; }
+.admin-failure-reason { display: block; width: 200px; max-width: 40vw; color: #a93b3b; font-size: 12px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.admin-rerun-action { width: max-content; max-width: 240px; white-space: normal; }
+.admin-rerun-trigger, .admin-rerun-confirm-button, .admin-rerun-cancel { min-height: 32px; padding: 6px 10px; border: 1px solid #dce5f3; border-radius: 8px; background: #f7f9ff; color: var(--blue); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.admin-rerun-trigger:hover, .admin-rerun-cancel:hover:not(:disabled) { border-color: #b9cbed; background: #edf3ff; }
+.admin-rerun-confirm { width: 220px; padding: 10px; border: 1px solid #f0dfb8; border-radius: 12px; background: #fffbf2; }
+.admin-rerun-confirm p { margin: 0 0 10px; color: #635334; font-size: 12px; line-height: 1.4; }
+.admin-rerun-buttons { display: flex; align-items: center; gap: 6px; }
+.admin-rerun-confirm-button { border-color: var(--blue); background: var(--blue); color: #fff; }
+.admin-rerun-confirm-button:hover:not(:disabled) { background: #0736a4; }
+.admin-rerun-cancel { border-color: #e5e7ec; background: #fff; color: #3e3e3e; }
+.admin-rerun-buttons button:disabled { cursor: not-allowed; opacity: 0.55; }
+.admin-rerun-action button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.admin-rerun-action > .admin-form-error { max-width: 220px; margin: 8px 0 0; white-space: normal; }
+.admin-report-cell { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; width: max-content; max-width: 100%; white-space: normal; }
 .admin-report-cell .admin-report-error { flex-basis: 100%; white-space: normal; }
 .admin-result-details-dialog { position: fixed; inset: 0; box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: clamp(12px, 2vw, 24px); overflow: hidden; border: 0; border-radius: 0; background: var(--surface); color: var(--ink); }
 .admin-result-details-dialog[open] { display: flex; flex-direction: column; }

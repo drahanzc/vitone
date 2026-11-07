@@ -260,12 +260,24 @@ export function getLinkAssessments(
   return centerRequest(`/assessment-links/${encodeURIComponent(linkId)}/assessments?${query.toString()}`, session, onSessionChange)
 }
 
+export function rerunAssessment(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+): Promise<components['schemas']['Assessment']> {
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/rerun`, session, onSessionChange, {
+    method: 'POST',
+  })
+}
+
 export function getLinkedAssessment(
   assessmentId: string,
   session: CenterSession,
   onSessionChange: (session: CenterSession | null) => void,
 ): Promise<components['schemas']['LinkedAssessmentDetailResponse']> {
-  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}`, session, onSessionChange)
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}`, session, onSessionChange, {
+    cache: 'no-store',
+  })
 }
 
 export function createAssessmentLink(

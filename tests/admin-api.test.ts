@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { CenterApiError, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, type CenterSession } from '../src/admin/admin-api'
+import { CenterApiError, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, rerunAssessment, type CenterSession } from '../src/admin/admin-api'
 
 const session: CenterSession = { accessToken: 'access', refreshToken: 'refresh', expiresAt: Date.now() + 3600_000 }
 const originalFetch = globalThis.fetch
@@ -16,10 +16,60 @@ describe('center assessment API', () => {
     expect(await getLinkAssessments('link', session, () => {}, 'next', 'COMPLETED')).toEqual({ items: [], next_cursor: null })
   })
 
+  test('queues rescoring using an authenticated POST with an encoded submission ID', async () => {
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toContain('/assessments/student%2Fid/rerun')
+      expect(init?.method).toBe('POST')
+      expect(init?.body).toBeUndefined()
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+      return Response.json({ id: 'student/id', status: 'UPLOADED', completed_at: null }, { status: 202 })
+    }) as typeof fetch
+    const queued = await rerunAssessment('student/id', session, () => {})
+    expect(queued.status).toBe('UPLOADED')
+    expect(queued.completed_at).toBeNull()
+  })
+
+  test('surfaces rerun conflicts without automatically submitting another rerun', async () => {
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls++
+      return Response.json({ error: { code: 'CONFLICT', message: 'Assessment is already processing.' } }, { status: 409 })
+    }) as typeof fetch
+    try {
+      await rerunAssessment('id', session, () => {})
+      throw new Error('Expected a conflict')
+    } catch (error) {
+      expect(error).toBeInstanceOf(CenterApiError)
+      expect((error as CenterApiError).status).toBe(409)
+      expect((error as Error).message).toBe('Assessment is already processing.')
+    }
+    expect(calls).toBe(1)
+  })
+
+  test('refreshes an expired authorization before queuing a rerun', async () => {
+    const paths: string[] = []
+    globalThis.fetch = (async (input, init) => {
+      paths.push(String(input))
+      if (String(input).endsWith('/auth/refresh')) {
+        return Response.json({ access_token: 'rerun-access', refresh_token: 'rerun-refresh', expires_in: 3600 })
+      }
+      expect(init?.method).toBe('POST')
+      const token = new Headers(init?.headers).get('Authorization')
+      if (token === 'Bearer access') return new Response(null, { status: 401 })
+      expect(token).toBe('Bearer rerun-access')
+      return Response.json({ id: 'id', status: 'UPLOADED' }, { status: 202 })
+    }) as typeof fetch
+    let refreshed: CenterSession | null = null
+    expect((await rerunAssessment('id', session, value => { refreshed = value })).status).toBe('UPLOADED')
+    expect(refreshed?.accessToken).toBe('rerun-access')
+    expect(paths).toHaveLength(3)
+  })
+
   test('loads the student email from the authenticated detail endpoint', async () => {
     globalThis.fetch = (async (input, init) => {
       expect(String(input)).toContain('/assessments/student%2Fid')
       expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+      expect(init?.cache).toBe('no-store')
       return Response.json({ id: 'student/id', learner_email: 'student@example.test' })
     }) as typeof fetch
     const detail = await getLinkedAssessment('student/id', session, () => {})

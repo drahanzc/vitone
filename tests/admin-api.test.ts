@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { CenterApiError, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, type CenterSession } from '../src/admin/admin-api'
+import { CenterApiError, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, type CenterSession } from '../src/admin/admin-api'
 
 const session: CenterSession = { accessToken: 'access', refreshToken: 'refresh', expiresAt: Date.now() + 3600_000 }
 const originalFetch = globalThis.fetch
@@ -24,6 +24,31 @@ describe('center assessment API', () => {
     }) as typeof fetch
     const detail = await getLinkedAssessment('student/id', session, () => {})
     expect(detail.learner_email).toBe('student@example.test')
+  })
+
+  test('loads per-reading errors with authorization, encoded paging, and cancellation', async () => {
+    const controller = new AbortController()
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(String(input), 'http://localhost')
+      expect(url.pathname).toContain('/assessments/student%2Fid/results')
+      expect(url.searchParams.get('reading_index')).toBe('2')
+      expect(url.searchParams.get('limit')).toBe('50')
+      expect(url.searchParams.get('cursor')).toBe('opaque+/cursor')
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+      expect(init?.signal).toBe(controller.signal)
+      return Response.json({ assessment_id: 'student/id', readings: [{ reading_index: 2, details_available: true }], errors: [], next_cursor: null })
+    }) as typeof fetch
+    const details = await getAssessmentResultDetails('student/id', session, () => {}, { readingIndex: 2, cursor: 'opaque+/cursor', signal: controller.signal })
+    expect(details.readings[0]?.reading_index).toBe(2)
+    expect(details.errors).toEqual([])
+  })
+
+  test('the all-readings request omits the reading filter and surfaces unavailable results', async () => {
+    globalThis.fetch = (async (input) => {
+      expect(String(input)).not.toContain('reading_index')
+      return Response.json({ error: { code: 'REPORT_NOT_READY', message: 'Report is not ready.' } }, { status: 409 })
+    }) as typeof fetch
+    await expect(getAssessmentResultDetails('id', session, () => {})).rejects.toBeInstanceOf(CenterApiError)
   })
 
   test('downloads PDF bytes with authorization', async () => {

@@ -1225,7 +1225,7 @@ input:not([type='checkbox']):focus {
   text-align: left;
 }
 
-.consent-box p { margin: 0 0 10px; font-size: 12px; line-height: 1.5; }
+.consent-box p { margin: 0 0 10px; font-size: 12px; line-height: 1.5; white-space: pre-line; }
 .consent-check { display: flex; align-items: flex-start; gap: 9px; color: #515966; font-size: 12px; line-height: 1.45; }
 .consent-check input { width: 16px; height: 16px; flex: 0 0 auto; margin: 0; accent-color: var(--blue); }
 

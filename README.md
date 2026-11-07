@@ -25,6 +25,12 @@ For a separately hosted API, set `VITE_API_BASE_URL` to its origin. The backend 
 
 Set the project root to `ui`, the build command to `bun run build`, and the output directory to `dist`. Set `VITE_API_BASE_URL` to the public backend origin at build time. `vercel.json` rewrites frontend routes to `index.html`, allowing assessment links and other client-side routes to work on direct visits and refreshes. If the backend is proxied through the same domain, configure its rewrites before the SPA catch-all.
 
+## Admin result details
+
+On `/admin/assessments`, completed submissions have **PDF** (download), **View PDF** (open online in a new tab), and **Details** buttons. The PDF viewer uses the authenticated report API without putting access tokens in the URL. Allow pop-ups for the site if the browser blocks the preview tab. Preview blob URLs belong to the new tab and are released when it closes or navigates away. **Details** opens a full-screen table of persisted detector errors, with filters for each reading and **Load more errors** pagination. The view uses the same center login and refresh flow as PDF downloads, via `GET /assessments/{id}/results`.
+
+The table shows check, target example/location, expected/observed details when recorded, and the detector reason. Missing historical evidence and unscored report items are identified explicitly. Raw provider data and numeric scores are not displayed. Closing the modal or changing reading filters cancels the pending request.
+
 ## OpenAPI types
 
 `assets/open-api.json` is the OpenAPI 3.1 document used to generate frontend types in `src/api-schema.d.ts`. Refresh the JSON from the running backend when its API contract changes, then regenerate the types:

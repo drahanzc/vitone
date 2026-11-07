@@ -15,6 +15,7 @@ export type AssessmentLink = components['schemas']['AssessmentLinkResponse']
 export type AssessmentListItem = components['schemas']['AssessmentListItem']
 export type AssessmentPage = components['schemas']['AssessmentPage']
 export type CreateLinkRequest = components['schemas']['CreateLinkRequest']
+export type AssessmentResultDetails = components['schemas']['AssessmentResultDetails']
 
 export class CenterApiError extends Error {
   readonly status: number
@@ -185,6 +186,21 @@ export async function getCenterReportPdf(
     headers: { Accept: 'application/pdf' },
   })
   return response.blob()
+}
+
+export function getAssessmentResultDetails(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+  options: { readingIndex?: number; cursor?: string; signal?: AbortSignal } = {},
+): Promise<AssessmentResultDetails> {
+  const query = new URLSearchParams({ limit: '50' })
+  if (options.readingIndex !== undefined) query.set('reading_index', String(options.readingIndex))
+  if (options.cursor) query.set('cursor', options.cursor)
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/results?${query.toString()}`, session, onSessionChange, {
+    headers: { Accept: 'application/json' },
+    signal: options.signal,
+  })
 }
 
 export async function revokeCenterSession(

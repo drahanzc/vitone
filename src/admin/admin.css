@@ -317,7 +317,10 @@
 .admin-status.is-good { color: #36bd61; }
 .admin-status.is-pending { color: #f4a000; }
 .admin-status.is-bad { color: #e15c5c; }
-.admin-result-text { display: block; max-width: 210px; overflow: hidden; color: #6f7684; text-overflow: ellipsis; }
+.admin-recent-results-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid #e5eaf2; border-radius: 8px; background: var(--surface); color: var(--blue); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.admin-recent-results-link svg { width: 14px; height: 14px; }
+.admin-recent-results-link:hover { border-color: #c5d5f5; background: #f7f9ff; }
+.admin-recent-results-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .admin-table-message { height: 98px !important; color: #8c939f; text-align: center; white-space: normal !important; }
 .admin-error-banner { padding: 11px 14px; border: 1px solid #ffd7d7; border-radius: 9px; background: #fff4f4; color: #a93b3b; font-size: 12px; }
 
@@ -327,13 +330,16 @@
 .admin-assessments-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .admin-assessments-toolbar p { margin: 0; color: var(--muted); font-size: 14px; }
 .admin-load-assessments { justify-self: center; }
-.admin-assessment-group { display: grid; gap: 20px; padding: 20px 0 24px; border-top: 1px solid #e8e8e8; }
-.admin-assessment-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-.admin-assessment-description h2 { margin: 0; color: var(--ink); font-size: 24px; font-weight: 500; line-height: 30px; overflow-wrap: anywhere; }
-.admin-assessment-description p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 20px; }
-.admin-assessment-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.admin-assessment-group { display: grid; gap: 16px; min-width: 0; padding: 20px; border: 1px solid #e8edf5; border-radius: 24px; background: #fff; box-shadow: 0 4px 20px rgb(8 19 51 / 4%); }
+.admin-assessment-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.admin-assessment-description { min-width: 0; padding: 18px 20px; border: 1px solid #e8edf5; border-radius: 16px; background: #f8faff; }
+.admin-assessment-description h2 { margin: 0; color: var(--ink); font-size: 18px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
+.admin-assessment-description p { margin: 6px 0 0; color: #606a79; font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
+.admin-assessment-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 14px; color: var(--muted); font-size: 12px; }
+.admin-assessment-meta .admin-status { padding: 5px 9px; border-radius: 999px; background: #fff; font-size: 12px; }
+.admin-assessment-description .admin-copy-row-button { margin-left: auto; font-size: 12px; }
 .admin-assessments-page .admin-overview-cards { gap: 12px; margin: 0; }
-.admin-results-panel { padding: 20px; border: 0; border-radius: 20px; box-shadow: none; }
+.admin-results-panel { min-width: 0; padding: 16px; border: 1px solid #edf0f5; border-radius: 16px; box-shadow: none; }
 .admin-assessments-page .admin-table, .admin-results-table { color: #3e3e3e; font-size: 14px; }
 .admin-assessments-page .admin-table th { height: 44px; background: #fafafa; color: #3e3e3e; font-size: 14px; letter-spacing: 0; }
 .admin-assessments-page .admin-table td { height: 56px; border-color: #e8e8e8; }
@@ -352,8 +358,32 @@
 .admin-results-table .admin-status { gap: 4px; font-size: 13px; line-height: 16px; }
 .admin-results-table .admin-status i { width: 4.5px; height: 4.5px; margin: 0 3.75px; }
 .admin-results-table .admin-status.is-good { color: #4ad26c; }
-.admin-report-cell { white-space: normal; }
-.admin-report-download { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid #ededed; border-radius: 8px; background: var(--surface); color: var(--blue); font: inherit; cursor: pointer; }
+.admin-results-table th:last-child, .admin-results-table td:last-child { width: 1%; white-space: nowrap; }
+.admin-report-cell { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: max-content; white-space: normal; }
+.admin-report-cell .admin-report-error { flex-basis: 100%; white-space: normal; }
+.admin-result-details-dialog { position: fixed; inset: 0; box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: clamp(12px, 2vw, 24px); overflow: hidden; border: 0; border-radius: 0; background: var(--surface); color: var(--ink); }
+.admin-result-details-dialog[open] { display: flex; flex-direction: column; }
+.admin-result-details-dialog > :not(.admin-result-details-scroll) { flex-shrink: 0; }
+.admin-result-details-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+.admin-result-details-heading h2 { margin: 0 0 8px; font-size: 22px; }
+.admin-result-details-heading p, .admin-result-details-footer p { color: #606a79; font-size: 13px; line-height: 1.6; }
+.admin-result-details-close { display: grid; width: 40px; height: 40px; flex: 0 0 40px; place-items: center; border: 0; border-radius: 50%; background: #e9edf3; color: #25324c; cursor: pointer; }
+.admin-result-details-close svg { width: 20px; height: 20px; }
+.admin-result-details-close:hover { background: #dce3ed; }
+.admin-result-details-close:focus-visible { outline: 3px solid #7fa8f4; outline-offset: 2px; }
+.admin-result-details-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.admin-result-details-filters button[aria-pressed="true"] { background: var(--blue); color: white; border-color: var(--blue); }
+.admin-result-details-notice { border-left: 3px solid #d09d30; padding: 8px 12px; font-size: 13px; background: #fff8e8; }
+.admin-result-details-scroll { flex: 1; min-height: 0; overflow: auto; }
+.admin-error-details-table { min-width: 900px; }
+.admin-error-details-table th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+.admin-error-details-table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; max-width: 260px; }
+.admin-error-details-table small { display: block; color: #606a79; margin-top: 6px; font-size: 11px; }
+.admin-result-target-id { font-family: ui-monospace, monospace; }
+.admin-result-details-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.admin-result-details-footer button { flex-shrink: 0; }
+.admin-report-download { display: inline-flex; align-items: center; gap: 4px; padding: 6px 8px; border: 1px solid #e5eaf2; border-radius: 8px; background: var(--surface); color: var(--blue); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.admin-report-download:hover:not(:disabled) { border-color: #c5d5f5; background: #f7f9ff; }
 .admin-report-download svg { width: 16px; height: 16px; }
 .admin-report-download:disabled { opacity: 0.6; cursor: wait; }
 .admin-report-error { display: block; max-width: 240px; margin-top: 4px; color: #a93b3b; font-size: 12px; }
@@ -549,7 +579,11 @@
   .admin-page-heading p { max-width: 270px; line-height: 1.45; }
   .admin-page-heading > .admin-primary-button, .admin-page-heading > .admin-outline-button { min-height: 36px; padding: 0 12px; font-size: 10px; white-space: nowrap; }
   .admin-heading-actions { align-items: flex-end; flex-direction: column; }
+  .admin-assessment-group { padding: 12px; border-radius: 18px; }
   .admin-assessment-summary { grid-template-columns: 1fr; }
+  .admin-assessment-description { padding: 16px; }
+  .admin-assessment-description .admin-copy-row-button { margin-left: 0; }
+  .admin-results-panel { padding: 12px; }
   .admin-assessments-toolbar { align-items: flex-start; flex-direction: column; }
   .admin-assessments-toolbar .admin-search { width: 100%; }
   .admin-passage-selector { max-width: 140px; height: 32px; font-size: 10px; }

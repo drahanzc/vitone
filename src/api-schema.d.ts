@@ -228,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "assessments/{id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_center_result_details"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "assessments/{id}/retry": {
         parameters: {
             query?: never;
@@ -419,6 +435,23 @@ export interface components {
             /** @example UPLOADED */
             status: string;
         };
+        AssessmentErrorDetail: {
+            example?: string | null;
+            expected?: string | null;
+            /** Format: int32 */
+            item_id: number;
+            item_label: string;
+            location?: string | null;
+            /** @description Null when the detector did not persist an observed realization. */
+            observed?: string | null;
+            /** Format: int32 */
+            reading_index: number;
+            reason: string;
+            reason_code?: string | null;
+            /** @description An error can exist even when other missing evidence left the item unscored. */
+            scored_in_report: boolean;
+            target_occurrence_id: string;
+        };
         AssessmentLinkPage: {
             items: components["schemas"]["AssessmentLinkResponse"][];
             next_cursor?: string | null;
@@ -473,6 +506,13 @@ export interface components {
             assessment_id: string;
             content: components["schemas"]["ReportContent"];
             generated_at: string;
+        };
+        AssessmentResultDetails: {
+            /** Format: uuid */
+            assessment_id: string;
+            errors: components["schemas"]["AssessmentErrorDetail"][];
+            next_cursor?: string | null;
+            readings: components["schemas"]["ResultReadingDetails"][];
         };
         AssessmentStatusResponse: {
             failure_message?: string | null;
@@ -908,6 +948,12 @@ export interface components {
             sentence_id?: string | null;
             target_occurrence_id: string;
             word_ids: string[];
+        };
+        ResultReadingDetails: {
+            /** @description False on historical readings without persisted detector findings/coverage. */
+            details_available: boolean;
+            /** Format: int32 */
+            reading_index: number;
         };
         /**
          * @description User-facing bands serialize as their human labels.
@@ -1921,6 +1967,80 @@ export interface operations {
             };
             /** @description PDF renderer is unavailable or busy; retry later */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_center_result_details: {
+        parameters: {
+            query?: {
+                /** @description Only this reading; omitted means all snapshot readings */
+                reading_index?: number;
+                /** @description Page size; default 50 */
+                limit?: number;
+                /** @description Opaque next_cursor from the same assessment and reading filter */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persisted ERROR findings, grouped by reading provenance and keyset-paginated; excludes scores and raw provider evidence */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentResultDetails"];
+                };
+            };
+            /** @description Invalid reading, page size, or cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found in this center */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment report is not ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Stored result provenance is inconsistent */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -27,6 +27,12 @@ export function statusName(status: string): string {
   return knownLabels[status] || status.replaceAll('_', ' ').toLowerCase().replace(/^./, char => char.toUpperCase())
 }
 
+export function failureReason(code: string | null | undefined): string {
+  if (!code) return 'The failure reason was not recorded.'
+  if (code === 'AUDIO_NO_SPEECH') return 'No speech was detected in the recording.'
+  return 'Analysis could not be completed.'
+}
+
 export function statusStyle(status: string): string {
   if (status === 'COMPLETED' || status === 'ACTIVE') return 'is-good'
   if (status === 'FAILED' || status === 'DISABLED') return 'is-bad'

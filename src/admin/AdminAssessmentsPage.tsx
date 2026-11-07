@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { getAssessmentLinks, getLinkAssessments, getLinkedAssessment, getPassages, type AssessmentLink, type AssessmentListItem, type CenterSession, type PassageChoice } from './admin-api'
 import { useCenterAuth } from './center-auth-context'
-import { formatDate, isShareableLink, statusName, statusStyle, useCopyAssessmentLink } from './assessment-utils'
+import { failureReason, formatDate, isShareableLink, statusName, statusStyle, useCopyAssessmentLink } from './assessment-utils'
 import { CreateLinkDialog } from './CreateLinkDialog'
 import { MetricCard } from './MetricCard'
 import { ReportDownload } from './ReportDownload'
@@ -198,15 +198,7 @@ function SubmissionTable({ link, filter, session, updateSession }: {
           <table className="admin-table admin-results-table">
             <thead><tr><th>Student</th><th>Email</th><th>Submitted at</th><th>Status</th><th>Result</th></tr></thead>
             <tbody>
-              {items.map(item => (
-                <tr key={item.id}>
-                  <td><strong>{item.learner_reference}</strong></td>
-                  <td><StudentEmail assessmentId={item.id} session={session} updateSession={updateSession} /></td>
-                  <td>{formatDate(item.created_at)}</td>
-                  <td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td>
-                  <td>{item.status === 'COMPLETED' ? <ReportDownload item={item} session={session} updateSession={updateSession} /> : '—'}</td>
-                </tr>
-              ))}
+              {items.map(item => <SubmissionRow key={item.id} item={item} session={session} updateSession={updateSession} />)}
               {!items.length && !error ? <tr><td className="admin-table-message" colSpan={5}>{loading ? 'Loading submissions…' : cursor ? 'No matches in the pages checked. Load more to continue.' : 'No submissions in this view.'}</td></tr> : null}
             </tbody>
           </table>
@@ -220,23 +212,29 @@ function SubmissionTable({ link, filter, session, updateSession }: {
   )
 }
 
-function StudentEmail({ assessmentId, session, updateSession }: {
-  assessmentId: string
+function SubmissionRow({ item, session, updateSession }: {
+  item: AssessmentListItem
   session: CenterSession
   updateSession: (session: CenterSession | null) => void
 }) {
-  const [email, setEmail] = useState<string | null | undefined>()
+  const [detail, setDetail] = useState<Awaited<ReturnType<typeof getLinkedAssessment>> | null>(null)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
-    getLinkedAssessment(assessmentId, session, updateSession)
-      .then(detail => { if (active) setEmail(detail.learner_email ?? null) })
+    getLinkedAssessment(item.id, session, updateSession)
+      .then(value => { if (active) setDetail(value) })
       .catch(() => { if (active) setFailed(true) })
     return () => { active = false }
-  }, [assessmentId, session, updateSession, attempt])
+  }, [item.id, session, updateSession, attempt])
 
-  if (failed) return <button className="admin-assessment-select" type="button" onClick={() => { setFailed(false); setEmail(undefined); setAttempt(value => value + 1) }}>Email unavailable · Retry</button>
-  return <span>{email === undefined ? 'Loading…' : email || '—'}</span>
+  return <tr>
+    <td><strong>{item.learner_reference}</strong></td>
+    <td>{failed ? <button className="admin-assessment-select" type="button" onClick={() => { setFailed(false); setDetail(null); setAttempt(value => value + 1) }}>Details unavailable · Retry</button> : detail ? detail.learner_email || '—' : 'Loading…'}</td>
+    <td>{formatDate(item.created_at)}</td>
+    <td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td>
+    <td>{item.status === 'COMPLETED' ? <ReportDownload item={item} session={session} updateSession={updateSession} />
+      : item.status === 'FAILED' ? <span className="admin-failure-reason">{failed ? 'Reason unavailable' : detail ? detail.failure_message || failureReason(detail.failure_code) : 'Loading reason…'}</span> : '—'}</td>
+  </tr>
 }

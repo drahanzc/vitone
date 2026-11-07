@@ -590,6 +590,8 @@ export interface components {
             completed_at?: string | null;
             created_at: string;
             failure_code?: string | null;
+            /** @description Safe explanation for a failed processing job, when available. */
+            failure_message?: string | null;
             /** Format: uuid */
             id: string;
             learner_email?: string | null;

@@ -359,6 +359,7 @@
 .admin-results-table .admin-status i { width: 4.5px; height: 4.5px; margin: 0 3.75px; }
 .admin-results-table .admin-status.is-good { color: #4ad26c; }
 .admin-results-table th:last-child, .admin-results-table td:last-child { width: 1%; white-space: nowrap; }
+.admin-failure-reason { display: block; width: 220px; max-width: 40vw; color: #a93b3b; font-size: 12px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
 .admin-report-cell { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: max-content; white-space: normal; }
 .admin-report-cell .admin-report-error { flex-basis: 100%; white-space: normal; }
 .admin-result-details-dialog { position: fixed; inset: 0; box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: clamp(12px, 2vw, 24px); overflow: hidden; border: 0; border-radius: 0; background: var(--surface); color: var(--ink); }

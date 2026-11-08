@@ -459,11 +459,14 @@ export interface components {
             status: string;
         };
         AssessmentErrorDetail: {
+            /** @description Reference sentence context from the immutable passage, never inferred audio text. */
+            context?: string | null;
             example?: string | null;
             expected?: string | null;
             /** Format: int32 */
             item_id: number;
             item_label: string;
+            /** @description One-based reference positions, or explicitly labelled recognition-only positions. */
             location?: string | null;
             /** @description Null when the detector did not persist an observed realization. */
             observed?: string | null;
@@ -534,8 +537,15 @@ export interface components {
             /** Format: uuid */
             assessment_id: string;
             errors: components["schemas"]["AssessmentErrorDetail"][];
+            /** @description Full selected-reading coverage, independent of the current findings page. */
+            item_summaries: components["schemas"]["ResultItemEvidenceSummary"][];
             next_cursor?: string | null;
+            /** @description All scored checks below Perfect, including incidence-based checks. */
+            non_perfect_items: components["schemas"]["NonPerfectScoredItem"][];
             readings: components["schemas"]["ResultReadingDetails"][];
+            report_generated_at: string;
+            /** @description Populated only with include_uncertainties=true; shares the page limit/cursor with errors. */
+            uncertainties: components["schemas"]["AssessmentUncertaintyDetail"][];
         };
         AssessmentStatusResponse: {
             failure_message?: string | null;
@@ -543,6 +553,9 @@ export interface components {
         };
         AssessmentSummary: {
             items: components["schemas"]["ReportItem"][];
+        };
+        AssessmentUncertaintyDetail: components["schemas"]["AssessmentErrorDetail"] & {
+            outcome: components["schemas"]["ResultUncertaintyOutcome"];
         };
         AuthTokensResponse: {
             access_token: string;
@@ -646,6 +659,16 @@ export interface components {
             email: string;
             /** Format: uuid */
             id: string;
+        };
+        /**
+         * @description A scored check below Perfect in the saved report, independent of evidence
+         *     availability, reading filters, and findings pagination.
+         */
+        NonPerfectScoredItem: {
+            band: components["schemas"]["ScoreBand"];
+            /** Format: int32 */
+            item_id: number;
+            item_label: string;
         };
         PassageChoice: {
             /**
@@ -947,7 +970,10 @@ export interface components {
         /** @description One flat row for an item from MIN_SCORING_ITEM_ID through MAX_SCORING_ITEM_ID. */
         ReportItem: {
             band?: components["schemas"]["ScoreBand"] | null;
-            /** @description The targets and detector reasons that prevented this item from scoring. */
+            /**
+             * @description Uncertain targets and reasons, including those that lower a scored band.
+             *     Historical snapshots may omit these even when evidence was incomplete.
+             */
             blocking_targets?: components["schemas"]["ReportTargetBlocker"][];
             /** @example 65 */
             item_id: number;
@@ -974,12 +1000,46 @@ export interface components {
             target_occurrence_id: string;
             word_ids: string[];
         };
+        /**
+         * @description Counts named scoring examples, not individual phones/targets. These describe
+         *     persisted findings and do not recompute or replace the saved band.
+         */
+        ResultItemEvidenceSummary: {
+            band?: components["schemas"]["ScoreBand"] | null;
+            /**
+             * Format: int32
+             * @description Examples counted as correct by the all-NO_ERROR aggregation policy.
+             */
+            correct_examples: number;
+            details_available: boolean;
+            /** Format: int32 */
+            error_examples: number;
+            /** Format: int32 */
+            expected_examples: number;
+            /** Format: int32 */
+            item_id: number;
+            item_label: string;
+            /** Format: int32 */
+            reading_index: number;
+            /**
+             * Format: int32
+             * @description Includes ambiguous, unassessable, unsupported, and missing target evidence.
+             */
+            uncertain_examples: number;
+            /** @description True only for scored v2 percentage checks with uncertain examples. */
+            uncertainty_affects_band: boolean;
+        };
         ResultReadingDetails: {
             /** @description False on historical readings without persisted detector findings/coverage. */
             details_available: boolean;
             /** Format: int32 */
             reading_index: number;
         };
+        /**
+         * @description Uncertainty is distinct from a confirmed detector error.
+         * @enum {string}
+         */
+        ResultUncertaintyOutcome: "AMBIGUOUS" | "UNASSESSABLE" | "UNSUPPORTED";
         /**
          * @description User-facing bands serialize as their human labels.
          * @enum {string}
@@ -2058,8 +2118,10 @@ export interface operations {
                 reading_index?: number;
                 /** @description Page size; default 50 */
                 limit?: number;
-                /** @description Opaque next_cursor from the same assessment and reading filter */
+                /** @description Opaque next_cursor from the same assessment, reading filter, and uncertainty mode */
                 cursor?: string;
+                /** @description Default false preserves error-only pagination. True adds separately labeled uncertain findings and full per-reading percentage-example coverage; errors and uncertainties share the page limit. */
+                include_uncertainties?: boolean;
             };
             header?: never;
             path: {
@@ -2069,7 +2131,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Persisted ERROR findings, grouped by reading provenance and keyset-paginated; excludes scores and raw provider evidence */
+            /** @description Persisted errors, optional uncertainty and coverage explanations from report-pinned evidence; no rescoring or raw provider evidence */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -218,7 +218,7 @@
 .admin-primary-button:disabled, .admin-outline-button:disabled { cursor: not-allowed; opacity: 0.55; }
 .admin-primary-button svg { width: 16px; height: 16px; }
 .admin-outline-button { border-color: #e5e7ec; background: #fff; color: #3e3e3e; text-decoration: none; }
-.admin-outline-button:hover:not(:disabled) { background: #f7f8fa; }
+.admin-outline-button:hover:not(:disabled) { background: #f7f8fa; color: #0041c3; }
 
 .admin-overview-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .admin-metric-card { min-height: 94px; padding: 16px 16px 16px 20px; border: 0; border-radius: 20px; background: var(--surface); box-shadow: 0 0 20.4px #0000000a; }
@@ -389,9 +389,22 @@
 .admin-result-details-filters button[aria-pressed="true"] { background: var(--blue); color: white; border-color: var(--blue); }
 .admin-result-details-notice { border-left: 3px solid #d09d30; padding: 8px 12px; font-size: 13px; background: #fff8e8; }
 .admin-result-details-scroll { flex: 1; min-height: 0; overflow: auto; }
-.admin-error-details-table { min-width: 900px; }
+.admin-error-details-table { min-width: 1200px; }
+.admin-evidence-summary { margin: 0 0 24px; }
+.admin-evidence-summary h3 { margin: 8px 0; font-size: 16px; }
+.admin-evidence-summary > p { max-width: 1100px; color: #606a79; font-size: 13px; line-height: 1.6; }
+.admin-evidence-summary-table { min-width: 1200px; }
+.admin-evidence-summary-table td { white-space: normal; vertical-align: top; max-width: 300px; }
+.admin-evidence-summary-table td:nth-child(6) { min-width: 220px; }
+.admin-evidence-summary-table ul { margin: 0; padding-left: 16px; }
+.admin-evidence-summary-table li + li { margin-top: 8px; }
+.admin-evidence-summary-table small { display: block; margin-top: 6px; color: #606a79; font-size: 11px; }
+.admin-finding-outcome { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.admin-finding-error { color: #8c2630; background: #fcebee; }
+.admin-finding-uncertain { color: #765315; background: #fff4d6; }
 .admin-error-details-table th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
 .admin-error-details-table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; max-width: 260px; }
+.admin-error-details-table td:nth-child(5) { min-width: 220px; }
 .admin-error-details-table small { display: block; color: #606a79; margin-top: 6px; font-size: 11px; }
 .admin-result-target-id { font-family: ui-monospace, monospace; }
 .admin-result-details-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

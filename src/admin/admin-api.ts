@@ -192,13 +192,15 @@ export function getAssessmentResultDetails(
   assessmentId: string,
   session: CenterSession,
   onSessionChange: (session: CenterSession | null) => void,
-  options: { readingIndex?: number; cursor?: string; signal?: AbortSignal } = {},
+  options: { readingIndex?: number; cursor?: string; includeUncertainties?: boolean; signal?: AbortSignal } = {},
 ): Promise<AssessmentResultDetails> {
   const query = new URLSearchParams({ limit: '50' })
   if (options.readingIndex !== undefined) query.set('reading_index', String(options.readingIndex))
   if (options.cursor) query.set('cursor', options.cursor)
+  if (options.includeUncertainties) query.set('include_uncertainties', 'true')
   return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/results?${query.toString()}`, session, onSessionChange, {
     headers: { Accept: 'application/json' },
+    cache: 'no-store',
     signal: options.signal,
   })
 }

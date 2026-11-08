@@ -84,11 +84,13 @@ describe('center assessment API', () => {
       expect(url.searchParams.get('reading_index')).toBe('2')
       expect(url.searchParams.get('limit')).toBe('50')
       expect(url.searchParams.get('cursor')).toBe('opaque+/cursor')
+      expect(url.searchParams.get('include_uncertainties')).toBe('true')
+      expect(init?.cache).toBe('no-store')
       expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
       expect(init?.signal).toBe(controller.signal)
       return Response.json({ assessment_id: 'student/id', readings: [{ reading_index: 2, details_available: true }], errors: [], next_cursor: null })
     }) as typeof fetch
-    const details = await getAssessmentResultDetails('student/id', session, () => {}, { readingIndex: 2, cursor: 'opaque+/cursor', signal: controller.signal })
+    const details = await getAssessmentResultDetails('student/id', session, () => {}, { readingIndex: 2, cursor: 'opaque+/cursor', includeUncertainties: true, signal: controller.signal })
     expect(details.readings[0]?.reading_index).toBe(2)
     expect(details.errors).toEqual([])
   })
@@ -96,6 +98,7 @@ describe('center assessment API', () => {
   test('the all-readings request omits the reading filter and surfaces unavailable results', async () => {
     globalThis.fetch = (async (input) => {
       expect(String(input)).not.toContain('reading_index')
+      expect(String(input)).not.toContain('include_uncertainties')
       return Response.json({ error: { code: 'REPORT_NOT_READY', message: 'Report is not ready.' } }, { status: 409 })
     }) as typeof fetch
     await expect(getAssessmentResultDetails('id', session, () => {})).rejects.toBeInstanceOf(CenterApiError)

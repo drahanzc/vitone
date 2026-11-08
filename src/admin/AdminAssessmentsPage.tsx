@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { getAssessmentLinks, getLinkAssessments, getLinkedAssessment, getPassages, type AssessmentLink, type AssessmentListItem, type CenterSession, type PassageChoice } from './admin-api'
 import { useCenterAuth } from './center-auth-context'
@@ -231,16 +231,18 @@ function SubmissionRow({ item, session, updateSession, onStatusChange }: {
   onStatusChange: (id: string, status: string, completedAt: string | null, queued?: boolean) => void
 }) {
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getLinkedAssessment>> | null>(null)
+  const detailVersion = useRef(0)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
+    const version = detailVersion.current
     let timer: number | undefined
     async function loadDetail() {
       try {
         const value = await getLinkedAssessment(item.id, session, updateSession)
-        if (!active) return
+        if (!active || version !== detailVersion.current) return
         setDetail(value)
         setFailed(false)
         if (value.status !== item.status) onStatusChange(item.id, value.status, value.completed_at)
@@ -248,7 +250,7 @@ function SubmissionRow({ item, session, updateSession, onStatusChange }: {
           timer = window.setTimeout(() => void loadDetail(), 5000)
         }
       } catch {
-        if (active) setFailed(true)
+        if (active && version === detailVersion.current) setFailed(true)
       }
     }
     void loadDetail()
@@ -263,6 +265,7 @@ function SubmissionRow({ item, session, updateSession, onStatusChange }: {
     <td>{item.status === 'COMPLETED' ? <ReportDownload item={item} session={session} updateSession={updateSession} />
       : item.status === 'FAILED' ? <span className="admin-failure-reason">{failed ? 'Reason unavailable' : detail ? detail.failure_message || failureReason(detail.failure_code) : 'Loading reason…'}</span> : '—'}</td>
     <td><AssessmentRerunButton item={item} session={session} updateSession={updateSession} onQueued={() => {
+      detailVersion.current += 1
       setDetail(null)
       setFailed(false)
       onStatusChange(item.id, 'UPLOADED', null, true)

@@ -510,11 +510,11 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
     const requestId = ++uploadRequestRef.current
     const startingRoute = routeUrlRef.current
     const extension = file.name.split('.').pop()?.toLowerCase()
-    const types: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', mp4: file.type.startsWith('audio/') ? 'audio/mp4' : 'video/mp4', mov: 'video/quicktime' }
+    const types: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/x-m4a', mp4: file.type.startsWith('audio/') ? 'audio/mp4' : 'video/mp4', mov: 'video/quicktime' }
     const type = extension ? types[extension] : undefined
     setFlowError('')
     if (!type || file.size === 0 || file.size > link.limits.max_audio_bytes) {
-      setFlowError(!type ? 'Choose an MP3, WAV, MP4, or MOV file.' : file.size === 0 ? 'The selected file is empty.' : 'The selected file exceeds the allowed size: ' + (link.limits.max_audio_bytes / 1024 / 1024).toFixed(1) + ' MB.')
+      setFlowError(!type ? 'Choose an MP3, WAV, M4A, MP4, or MOV file.' : file.size === 0 ? 'The selected file is empty.' : 'The selected file exceeds the allowed size: ' + (link.limits.max_audio_bytes / 1024 / 1024).toFixed(1) + ' MB.')
       return
     }
     setCheckingUpload(true)
@@ -614,7 +614,7 @@ function AssessmentFlow({ token, step }: { token: string; step?: string }) {
 
   return (
     <div className="student-app" data-capture-id={captureId} onClickCapture={guardAssessmentLink}>
-      <input ref={uploadInputRef} type="file" accept=".mp3,.wav,.mp4,.mov,audio/mpeg,audio/wav,audio/mp4,video/mp4,video/quicktime" hidden onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void selectUpload(file) }} />
+      <input ref={uploadInputRef} type="file" accept=".mp3,.wav,.m4a,.mp4,.mov,audio/mpeg,audio/wav,audio/mp4,audio/m4a,audio/x-m4a,video/mp4,video/quicktime" hidden onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void selectUpload(file) }} />
       <StudentHeader activeStep={activeStep} showInfo />
       <main className={`assessment-main assessment-view-${view} ${showReading ? 'reading-stage' : ''} ${view === 'review' && uploadedName ? 'assessment-upload-review' : ''}`}>
         <div className="assessment-grid">

@@ -406,6 +406,7 @@ export function submitPublicAssessment(
 export function audioFilename(audio: Blob): string {
   const mediaType = audio.type.split(';', 1)[0]?.trim().toLowerCase()
   if (mediaType === 'audio/mpeg') return 'recording.mp3'
+  if (mediaType === 'audio/m4a' || mediaType === 'audio/x-m4a') return 'recording.m4a'
   if (mediaType === 'video/quicktime') return 'recording.mov'
   const extension = mediaType === 'audio/mp4' || mediaType === 'video/mp4'
     ? 'mp4'

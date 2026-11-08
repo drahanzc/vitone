@@ -156,7 +156,7 @@ export function StudioPanel({
               {view === 'overview' || view === 'preview' ? <div className="overview-voice-actions">
                 <button className="overview-upload" type="button" onClick={onUpload} disabled={uploadBusy}>
                   <span className="overview-upload-icon"><img src="/assets/794-4134.svg" alt="" /></span>
-                  <span className="overview-upload-copy"><strong>{uploadBusy ? 'Checking file…' : 'Upload recording'}</strong><span>Supported format: MP3, WAV, MP4, MOV</span></span>
+                  <span className="overview-upload-copy"><strong>{uploadBusy ? 'Checking file…' : 'Upload recording'}</strong><span>Supported format: MP3, WAV, M4A, MP4, MOV</span></span>
                 </button>
                 <button className="overview-record" type="button" onClick={onPrepare}>
                   <span className="overview-record-icon"><img src="/assets/794-4144.svg" alt="" /></span><span>Start Recording</span>

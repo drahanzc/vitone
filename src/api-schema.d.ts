@@ -582,7 +582,7 @@ export interface components {
         CreateLinkedAssessmentRequest: {
             /**
              * Format: binary
-             * @description Original WAV, WebM, MP4, Ogg, MP3 (audio/mpeg), or MOV (video/quicktime)
+             * @description Original WAV, WebM, MP4, M4A (`audio/m4a` or `audio/x-m4a`), Ogg, MP3 (audio/mpeg), or MOV (video/quicktime)
              *     recording containing all required readings. MOV must contain an audio track;
              *     video is ignored during audio processing.
              * @example assessment.webm
@@ -1008,13 +1008,16 @@ export interface components {
             band?: components["schemas"]["ScoreBand"] | null;
             /**
              * Format: int32
-             * @description Examples counted as correct by the all-NO_ERROR aggregation policy.
+             * @description Applicable examples whose scored atoms are all NO_ERROR.
              */
             correct_examples: number;
             details_available: boolean;
             /** Format: int32 */
             error_examples: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Applicable named examples; excludes approved Item 5 contractions without /ɑ/.
+             */
             expected_examples: number;
             /** Format: int32 */
             item_id: number;
@@ -1098,7 +1101,7 @@ export interface components {
             reason: string;
         };
         /** @enum {string} */
-        UnscoredReason: "UNSUPPORTED" | "AMBIGUOUS" | "UNASSESSABLE" | "INCOMPLETE" | "NO_TARGETS" | "TARGET_RECONCILIATION";
+        UnscoredReason: "UNSUPPORTED" | "AMBIGUOUS" | "UNASSESSABLE" | "INCOMPLETE" | "NO_TARGETS" | "NOT_APPLICABLE" | "TARGET_RECONCILIATION";
     };
     responses: never;
     parameters: never;

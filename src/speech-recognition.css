@@ -1,13 +1,5 @@
-.speech-part {
-  transition: color 120ms ease;
-}
-
-.speech-part-read {
-  color: var(--ink);
-}
-
-.speech-part-upcoming {
-  color: #8195A7;
+.sentence-row p {
+  transition: color 180ms ease, font-size 220ms ease, line-height 220ms ease, font-weight 180ms ease;
 }
 
 .sentence-row.speech-sentence-active p {
@@ -79,13 +71,21 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .speech-part,
+  .sentence-row p,
   .speech-sentence-dim {
     transition: none;
+  }
+
+  .sentence-list {
+    scroll-behavior: auto;
   }
 }
 
 @media (max-width: 760px) {
+  .assessment-view-record .reading-card-top {
+    flex-wrap: wrap;
+  }
+
   .sentence-row.speech-sentence-active p {
     font-size: 18px;
     line-height: 24px;

@@ -1,5 +1,107 @@
 import { describe, expect, test } from 'bun:test'
-import { alignSpeechResult, alignContinuousTwoReadingResult, matchRecognizedWords, shouldAcceptForwardHighlight } from '../src/speech-recognition'
+import {
+  alignSpeechResult,
+  alignContinuousTwoReadingResult,
+  computeHighlightedSentenceIndex,
+  matchRecognizedWords,
+  shouldAcceptForwardHighlight,
+  selectForwardSentence,
+  type PassageSentence,
+} from '../src/speech-recognition'
+
+const SENTENCES: PassageSentence[] = [
+  {
+    text: 'Read this.',
+    parts: [
+      { text: 'Read', wordIndex: 0, normalizedWord: 'read' },
+      { text: ' this.', wordIndex: 1, normalizedWord: 'this' },
+    ],
+  },
+  {
+    text: 'Then continue.',
+    parts: [
+      { text: 'Then', wordIndex: 2, normalizedWord: 'then' },
+      { text: ' continue.', wordIndex: 3, normalizedWord: 'continue' },
+    ],
+  },
+  {
+    text: 'Now begin.',
+    parts: [
+      { text: 'Now', wordIndex: 4, normalizedWord: 'now' },
+      { text: ' begin.', wordIndex: 5, normalizedWord: 'begin' },
+    ],
+  },
+]
+
+describe('speech sentence highlighting', () => {
+  test('pre-zooms the third sentence when the second sentence ends, before it is spoken', () => {
+    const completedSentence = alignContinuousTwoReadingResult(
+      ['read', 'this', 'then', 'continue', 'now', 'begin'],
+      'Then continue.',
+      2,
+      true,
+    )
+
+    expect(completedSentence.nextExpectedIndex).toBe(4)
+    expect(computeHighlightedSentenceIndex({
+      sentences: SENTENCES,
+      cursor: completedSentence.nextExpectedIndex,
+      readingNumber: 1,
+      expectedWordsLength: 6,
+    })).toBe(2)
+  })
+
+  test('a unique interim word recovers short cursor lag into the third sentence', () => {
+    const expectedWords = ['read', 'this', 'then', 'continue', 'now', 'begin']
+    const interim = alignContinuousTwoReadingResult(expectedWords, 'Now', 3, false)
+
+    expect(interim).toEqual({ wordIndex: 4, nextExpectedIndex: 3, provisional: true })
+    expect(computeHighlightedSentenceIndex({
+      sentences: SENTENCES,
+      cursor: interim.wordIndex! + 1,
+      readingNumber: 1,
+      expectedWordsLength: expectedWords.length,
+    })).toBe(2)
+  })
+
+  test('a shorter final result does not undo an interim advance to the third sentence', () => {
+    const words = ['read', 'this', 'then', 'continue', 'now', 'begin']
+    const interim = alignContinuousTwoReadingResult(words, 'then continue now', 2, false)
+    const final = alignContinuousTwoReadingResult(words, 'then', 2, true)
+    expect(interim.wordIndex).toBe(4)
+    expect(final.wordIndex).toBe(2)
+
+    const provisionalSentence = computeHighlightedSentenceIndex({
+      sentences: SENTENCES, cursor: interim.wordIndex! + 1, readingNumber: 1, expectedWordsLength: words.length,
+    })
+    const finalSentence = computeHighlightedSentenceIndex({
+      sentences: SENTENCES, cursor: final.nextExpectedIndex, readingNumber: 1, expectedWordsLength: words.length,
+    })
+    const accepted = shouldAcceptForwardHighlight(
+      { readingNumber: 1, wordIndex: interim.wordIndex! },
+      { readingNumber: 1, wordIndex: final.wordIndex! },
+    )
+    expect(provisionalSentence).toBe(2)
+    expect(finalSentence).toBe(1)
+    expect(selectForwardSentence(provisionalSentence, finalSentence, accepted)).toBe(2)
+  })
+
+  test('sentence progression starts at the top of Reading 2 and stays at its end', () => {
+    expect(computeHighlightedSentenceIndex({
+      sentences: SENTENCES,
+      cursor: 6,
+      readingNumber: 2,
+      expectedWordsLength: 6,
+    })).toBe(0)
+
+    expect(computeHighlightedSentenceIndex({
+      sentences: SENTENCES,
+      cursor: 12,
+      readingNumber: 2,
+      expectedWordsLength: 6,
+    })).toBe(2)
+  })
+})
 
 describe('speech passage matching', () => {
   test('matches repeated expected words in order without moving backwards', () => {
@@ -19,6 +121,7 @@ describe('speech passage matching', () => {
 
     expect(matchRecognizedWords(expectedWords, 'rocket satellite', 0)).toBeNull()
     expect(matchRecognizedWords(expectedWords, 'read story', 0)).toBeNull()
+    expect(matchRecognizedWords(['go', 'the', 'story', 'the', 'end'], 'the', 0)).toBeNull()
   })
 
   test('catches up when a strong phrase is ahead of the recognition cursor', () => {

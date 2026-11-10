@@ -6,25 +6,6 @@ import type { PublicLink } from '../../student-api'
 const PASSAGE_SCROLL_TRIGGER_RATIO = 2 / 3
 const PASSAGE_SCROLL_TARGET_RATIO = 1 / 3
 
-function partProgressWordIndices(parts: readonly { wordIndex: number | null }[]): (number | null)[] {
-  const indices = new Array<number | null>(parts.length).fill(null)
-  let nextWordIndex: number | null = null
-  for (let index = parts.length - 1; index >= 0; index -= 1) {
-    const wordIndex = parts[index].wordIndex
-    if (wordIndex !== null) nextWordIndex = wordIndex
-    indices[index] = nextWordIndex
-  }
-
-  let previousWordIndex: number | null = null
-  for (let index = 0; index < parts.length; index += 1) {
-    const wordIndex = parts[index].wordIndex
-    if (wordIndex !== null) previousWordIndex = wordIndex
-    else if (indices[index] === null) indices[index] = previousWordIndex
-  }
-
-  return indices
-}
-
 export function PassagePanel({ link, view, recordingState, captureId, onPreview, onBack, onBackToOverview }: {
   link: PublicLink
   view: FlowView
@@ -44,7 +25,7 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
   const [scrollThumbTop, setScrollThumbTop] = useState(0)
   const [showScrollThumb, setShowScrollThumb] = useState(false)
   const context = link.passage.context?.trim()
-  const { readingNumber, sentences, activeWordIndex, provisionalWordIndex, activeSentenceIndex, status, message } = useSpeechRecognitionPassage({
+  const { readingNumber, sentences, highlightedSentenceIndex, status, message } = useSpeechRecognitionPassage({
     text: link.passage.text,
     active: view === 'record' && recordingState === 'recording',
     readingNumber: 1,
@@ -91,11 +72,11 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
   useEffect(() => {
     const list = passageListRef.current
     const sentence = activeSentenceRef.current
-    if (view !== 'record' || activeSentenceIndex === null || !list || !sentence) return
+    if (view !== 'record' || highlightedSentenceIndex === null || !list || !sentence) return
     // The second-reading jump owns the initial position of Reading 2. Do not
     // immediately offset its first sentence because it is temporarily below
     // the viewport before the jump is applied.
-    if (readingNumber === 2 && activeSentenceIndex === 0) return
+    if (readingNumber === 2 && highlightedSentenceIndex === 0) return
 
     const listBounds = list.getBoundingClientRect()
     const sentenceBounds = sentence.getBoundingClientRect()
@@ -109,7 +90,7 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
       : list.clientHeight * PASSAGE_SCROLL_TARGET_RATIO
     const nextScrollTop = list.scrollTop + sentenceBounds.top - listBounds.top - targetOffset
     list.scrollTo({ top: Math.max(0, nextScrollTop), behavior: 'smooth' })
-  }, [activeSentenceIndex, readingNumber, view])
+  }, [highlightedSentenceIndex, readingNumber, view])
 
   useEffect(() => {
     if (view !== 'record' && view !== 'review') return
@@ -180,24 +161,15 @@ export function PassagePanel({ link, view, recordingState, captureId, onPreview,
             >
               {view === "record" && <span className="eyebrow">{reading === 1 ? 'Reading 1 of 2' : 'Reading 2 of 2 — read it again'}</span>}
               {sentences.map((sentence, index) => {
-                const isActiveSentence = isCurrentReading && activeSentenceIndex === index
-                const partWordIndices = partProgressWordIndices(sentence.parts)
-                const progressWordIndex = isCurrentReading ? provisionalWordIndex ?? activeWordIndex : null
+                const isActiveSentence = isCurrentReading && highlightedSentenceIndex === index
                 return (
                   <div
-                    className={`sentence-row ${!isCurrentReading ? 'speech-sentence-dim' : activeSentenceIndex === null ? '' : isActiveSentence ? 'speech-sentence-active' : 'speech-sentence-dim'}`}
+                    className={`sentence-row ${!isCurrentReading ? 'speech-sentence-dim' : highlightedSentenceIndex === null ? '' : isActiveSentence ? 'speech-sentence-active' : 'speech-sentence-dim'}`}
                     key={index}
                     ref={isActiveSentence ? activeSentenceRef : undefined}
                   >
                     <span className={`sentence-number ${isActiveSentence ? 'active' : ''}`}>{String(index + 1).padStart(2, '0')}</span>
-                    <p>{sentence.parts.map((part, partIndex) => {
-                      const partWordIndex = partWordIndices[partIndex]
-                      const hasBeenRead = isActiveSentence
-                        && progressWordIndex !== null
-                        && partWordIndex !== null
-                        && partWordIndex <= progressWordIndex
-                      return <span key={partIndex} className={`speech-part${isActiveSentence ? hasBeenRead ? ' speech-part-read' : ' speech-part-upcoming' : ''}`}>{part.text}</span>
-                    })}</p>
+                    <p>{sentence.parts.map((part, partIndex) => <span key={partIndex}>{part.text}</span>)}</p>
                   </div>
                 )
               })}

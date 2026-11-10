@@ -24,17 +24,14 @@ export interface SpeechRecognitionPassage {
   sentences: PassageSentence[]
   /** Which copy of the passage is currently being read. */
   readingNumber: 1 | 2
-  /** Index of the latest passage word confirmed by a final recognition result. */
-  activeWordIndex: number | null
-  /** A temporary highlight from interim speech that does not advance the cursor. */
-  provisionalWordIndex: number | null
-  activeSentenceIndex: number | null
+  /** Sentence index the follow indicator should highlight. */
+  highlightedSentenceIndex: number | null
   status: SpeechRecognitionStatus
   message: string | null
   interimTranscript: string
 }
 
-interface SpeechRecognitionPassageOptions {
+export interface SpeechRecognitionPassageOptions {
   text: string
   active: boolean
   /** Kept for call-site compatibility; a capture can contain both readings. */
@@ -46,11 +43,10 @@ interface SpeechRecognitionPassageOptions {
 interface RecognitionUiState {
   sessionKey: object
   readingNumber: 1 | 2
-  activeWordIndex: number | null
-  provisionalWordIndex: number | null
   status: SpeechRecognitionStatus
   message: string | null
   interimTranscript: string
+  highlightedSentenceIndex: number | null
 }
 
 type RecognitionUiChanges = Partial<Omit<RecognitionUiState, 'sessionKey'>>
@@ -60,11 +56,10 @@ function initialRecognitionUiState(sessionKey: object): RecognitionUiState {
   return {
     sessionKey,
     readingNumber: 1,
-    activeWordIndex: null,
-    provisionalWordIndex: null,
     status: 'idle',
     message: null,
     interimTranscript: '',
+    highlightedSentenceIndex: null,
   }
 }
 
@@ -168,9 +163,10 @@ function buildPassageSentences(text: string): { sentences: PassageSentence[]; ex
 
 /**
  * Finds the last expected passage word supported by a short, forward-only
- * transcript alignment. A lone word can match only at the current cursor.
- * Longer transcripts need adjacent matching words, or a three-word alignment
- * with strong coverage, before they can move the cursor ahead.
+ * transcript alignment. A lone word can recover a small cursor lag only when
+ * it has a unique match in the recovery window. Longer transcripts need
+ * adjacent matching words, or a three-word alignment with strong coverage,
+ * before they can move the cursor farther ahead.
  */
 export function matchRecognizedWords(
   expectedWords: readonly string[],
@@ -184,7 +180,14 @@ export function matchRecognizedWords(
   if (cursor >= expectedWords.length) return null
 
   if (recognizedWords.length === 1) {
-    return expectedWords[cursor] === recognizedWords[0] ? cursor : null
+    const searchEnd = Math.min(expectedWords.length, cursor + MAX_EXPECTED_GAP + 1)
+    let matchIndex = -1
+    for (let index = cursor; index < searchEnd; index += 1) {
+      if (expectedWords[index] !== recognizedWords[0]) continue
+      if (matchIndex >= 0) return null
+      matchIndex = index
+    }
+    return matchIndex >= 0 ? matchIndex : null
   }
 
   let best: { lastIndex: number; score: number; firstIndex: number } | null = null
@@ -255,6 +258,15 @@ export function shouldAcceptForwardHighlight(previous: HighlightPosition | null,
   return previous === null
     || previous.readingNumber !== candidate.readingNumber
     || candidate.wordIndex >= previous.wordIndex
+}
+
+/** Keep a provisional sentence visible when a later final result falls behind it. */
+export function selectForwardSentence(
+  previousSentence: number | null,
+  candidateSentence: number | null,
+  acceptedHighlight: boolean,
+): number | null {
+  return acceptedHighlight ? candidateSentence : previousSentence
 }
 
 /** Aligns a result while keeping interim recognition from committing progress. */
@@ -365,6 +377,19 @@ export function useSpeechRecognitionPassage({
   }, [sessionKey])
 
   useEffect(() => {
+    updateRecognitionUiState(setRecognitionUi, sessionKey, current => ({
+      highlightedSentenceIndex: active || current.highlightedSentenceIndex !== null
+        ? computeHighlightedSentenceIndex({
+          sentences,
+          cursor: nextExpectedIndexRef.current,
+          readingNumber: current.readingNumber,
+          expectedWordsLength: expectedWords.length,
+        })
+        : null,
+    }))
+  }, [active, expectedWords.length, sentences, sessionKey])
+
+  useEffect(() => {
     if (!active || !Recognition || expectedWords.length === 0) return
 
     let disposed = false
@@ -380,10 +405,17 @@ export function useSpeechRecognitionPassage({
     recognition.onstart = () => {
       if (disposed) return
       processedResultIndexes = new Set<number>()
-      updateRecognitionUiState(setRecognitionUi, sessionKey, {
+      updateRecognitionUiState(setRecognitionUi, sessionKey, current => ({
         status: 'listening',
         message: null,
-      })
+        // Pre-zoom to the sentence at the current cursor before the user reads it.
+        highlightedSentenceIndex: current.highlightedSentenceIndex ?? computeHighlightedSentenceIndex({
+          sentences,
+          cursor: nextExpectedIndexRef.current,
+          readingNumber: current.readingNumber,
+          expectedWordsLength: expectedWords.length,
+        }),
+      }))
     }
 
     recognition.onresult = event => {
@@ -415,7 +447,7 @@ export function useSpeechRecognitionPassage({
           lastHighlightRef.current = { readingNumber: 2, wordIndex: 0 }
           updateRecognitionUiState(setRecognitionUi, sessionKey, {
             readingNumber: 2,
-            activeWordIndex: 0,
+            highlightedSentenceIndex: 0,
           })
           continue
         }
@@ -427,15 +459,24 @@ export function useSpeechRecognitionPassage({
         if (acceptedFinalHighlight) {
           lastHighlightRef.current = { readingNumber: nextReadingNumber, wordIndex: matchedIndex }
         }
+        const cursor = nextExpectedIndexRef.current
         updateRecognitionUiState(setRecognitionUi, sessionKey, current => ({
           readingNumber: nextReadingNumber,
-          activeWordIndex: acceptedFinalHighlight ? matchedIndex : current.activeWordIndex,
+          highlightedSentenceIndex: selectForwardSentence(
+            current.highlightedSentenceIndex,
+            computeHighlightedSentenceIndex({
+              sentences,
+              cursor,
+              readingNumber: nextReadingNumber,
+              expectedWordsLength: expectedWords.length,
+            }),
+            acceptedFinalHighlight,
+          ),
         }))
       }
       if (enteredSecondReading) {
         updateRecognitionUiState(setRecognitionUi, sessionKey, {
           interimTranscript: latestInterim,
-          provisionalWordIndex: null,
         })
         return
       }
@@ -455,10 +496,17 @@ export function useSpeechRecognitionPassage({
           wordIndex: provisionalWordIndex,
         }
       }
-      updateRecognitionUiState(setRecognitionUi, sessionKey, {
+      updateRecognitionUiState(setRecognitionUi, sessionKey, current => ({
         interimTranscript: latestInterim,
-        provisionalWordIndex: acceptedProvisionalHighlight ? provisionalWordIndex : null,
-      })
+        highlightedSentenceIndex: acceptedProvisionalHighlight && provisionalWordIndex !== null
+          ? computeHighlightedSentenceIndex({
+            sentences,
+            cursor: (provisionalReadingNumber - 1) * expectedWords.length + provisionalWordIndex + 1,
+            readingNumber: provisionalReadingNumber,
+            expectedWordsLength: expectedWords.length,
+          })
+          : current.highlightedSentenceIndex,
+      }))
     }
 
     recognition.onerror = event => {
@@ -469,7 +517,6 @@ export function useSpeechRecognitionPassage({
       updateRecognitionUiState(setRecognitionUi, sessionKey, {
         status: 'error',
         message: errorMessage,
-        provisionalWordIndex: null,
         interimTranscript: '',
       })
     }
@@ -517,7 +564,7 @@ export function useSpeechRecognitionPassage({
         // The browser may already have stopped this recognition session.
       }
     }
-  }, [active, expectedWords, lang, Recognition, sessionKey])
+  }, [active, expectedWords, lang, Recognition, sentences, sessionKey])
 
   const status: SpeechRecognitionStatus = !active
     ? 'idle'
@@ -529,22 +576,57 @@ export function useSpeechRecognitionPassage({
     : !Recognition
       ? 'Live passage highlighting is not available in this browser. You can still read and record the passage.'
       : currentUi.message
-  const provisionalWordIndex = active ? currentUi.provisionalWordIndex : null
-  const activeWordIndex = currentUi.activeWordIndex
   const interimTranscript = active ? currentUi.interimTranscript : ''
-  const highlightedWordIndex = provisionalWordIndex ?? activeWordIndex
-  const activeSentenceIndex = highlightedWordIndex === null
-    ? null
-    : sentences.findIndex(sentence => sentence.parts.some(part => part.wordIndex === highlightedWordIndex))
 
   return {
     sentences,
     readingNumber: currentUi.readingNumber,
-    activeWordIndex,
-    provisionalWordIndex,
-    activeSentenceIndex,
+    highlightedSentenceIndex: currentUi.highlightedSentenceIndex,
     status,
     message,
     interimTranscript,
   }
+}
+
+/**
+ * Word index range [start, end] covered by each sentence within one reading.
+ * Sentences with no recognized words report [0, -1].
+ */
+function sentenceWordRanges(sentences: PassageSentence[]): Array<[number, number]> {
+  return sentences.map(sentence => {
+    const indices = sentence.parts.map(part => part.wordIndex).filter((index): index is number => index !== null)
+    return indices.length === 0 ? [0, -1] : [Math.min(...indices), Math.max(...indices)]
+  })
+}
+
+/**
+ * Computes the sentence that should be highlighted for the follow indicator.
+ *
+ * The cursor (next expected word) drives a Spotify-style pre-zoom: as soon as
+ * recognition advances past the last word of the current sentence, the next
+ * sentence is highlighted immediately, before the user has spoken a word of it.
+ */
+export function computeHighlightedSentenceIndex({
+  sentences,
+  cursor,
+  readingNumber,
+  expectedWordsLength,
+}: {
+  sentences: PassageSentence[]
+  cursor: number
+  readingNumber: 1 | 2
+  expectedWordsLength: number
+}): number | null {
+  if (sentences.length === 0 || expectedWordsLength === 0) return null
+  const ranges = sentenceWordRanges(sentences)
+  const cursorInReading = cursor - (readingNumber - 1) * expectedWordsLength
+
+  // The cursor identifies the next sentence to read. This advances the
+  // highlight as soon as the last word of the current sentence is recognized.
+  for (let index = 0; index < ranges.length; index += 1) {
+    const [start, end] = ranges[index]
+    if (start <= cursorInReading && cursorInReading <= end) return index
+  }
+  // Cursor is past the end of the passage; keep the last sentence lit.
+  return ranges.length - 1
 }

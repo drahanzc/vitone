@@ -31,24 +31,24 @@ On `/admin/assessments`, completed submissions have **PDF** (download), **View P
 
 The table shows check, target example/location, expected/observed details when recorded, and the detector reason. Missing historical evidence and unscored report items are identified explicitly. Raw provider data and numeric scores are not displayed. Closing the modal or changing reading filters cancels the pending request.
 
-## Rerun with rebuilt word alignment
+## Assessment monitoring
 
-On completed or failed submissions, click **Rerun assessment**. Leave **Rebuild
-word alignment** unchecked for the existing saved-evidence rescore. After editing
-saved provider responses in an isolated test database, select it before **Confirm
-rerun** to rebuild word alignment from those responses and generate a new report.
-The option is off by default and resets after cancellation or successful queueing.
+On `/admin/assessments`, the **Monitor / Troubleshoot** link beneath each student
+opens `/admin/assessments/:id/monitor`. This authenticated screen refreshes every
+five seconds and displays numbered processing checkpoints, execution counts,
+timestamps, safe failure details, and saved reading durations. A manual refresh
+button is also available. The submissions table has no Actions column.
 
-Rebuilding does not call Azure or read/process audio. It replaces saved alignment
-and discards local pitch/acoustic sidecars; audio-dependent items may therefore be
-unassessable. It cannot make synthetic responses correspond to the original audio.
-Both rerun modes replace the previous report. Deploy the updated backend and UI
-together before using this option; the backend applies migration
-`0005_rescore_word_alignment.sql` at startup and persists the choice with the job.
+For failed submissions, **Resume from failed checkpoints** queues unfinished
+work without clearing successful stage artifacts. Completed readings are skipped;
+matching pitch, pYIN, and recognition checkpoints are reused. Input validation is
+repeated for unfinished readings. The action resumes all unfinished work, not an
+arbitrary completed stage. Repair configuration/input failures before retrying.
+Historical assessments without checkpoint records are identified explicitly.
 
 ## OpenAPI types
 
-`assets/open-api.json` is the OpenAPI 3.1 document used to generate frontend types in `src/api-schema.d.ts`. Refresh the JSON from the running backend when its API contract changes, then regenerate the types:
+`assets/open-api.json` is the OpenAPI 3.1 document used to generate frontend types in `src/api-schema.d.ts`. Export it from the backend without starting services (`cargo run --quiet --bin export_openapi > ui/assets/open-api.json`, from the backend root), or fetch it from a running server, then regenerate the types:
 
 ```bash
 curl --fail http://127.0.0.1:3000/api-docs/openapi.json -o assets/open-api.json

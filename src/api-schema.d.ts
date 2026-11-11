@@ -461,6 +461,24 @@ export interface components {
             /** @example UPLOADED */
             status: string;
         };
+        /** @description Safe stage metadata; cached acoustic/provider artifacts remain server-side. */
+        AssessmentCheckpoint: {
+            completed_at?: string | null;
+            error_summary?: string | null;
+            /** Format: int32 */
+            executions: number;
+            label: string;
+            /**
+             * Format: int32
+             * @description Zero denotes an assessment-wide step, otherwise the reading number.
+             */
+            reading_index: number;
+            retryable?: boolean | null;
+            started_at: string;
+            status: string;
+            /** Format: int32 */
+            step: number;
+        };
         AssessmentErrorDetail: {
             /** @description Reference sentence context from the immutable passage, never inferred audio text. */
             context?: string | null;
@@ -627,6 +645,7 @@ export interface components {
          */
         IntonationSegmentRole: "nonfinal" | "final" | "alternative_a" | "alternative_b";
         LinkedAssessmentDetailResponse: {
+            checkpoints: components["schemas"]["AssessmentCheckpoint"][];
             completed_at?: string | null;
             created_at: string;
             failure_code?: string | null;
@@ -2224,7 +2243,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Failed assessment queued again */
+            /** @description Failed assessment resumed; completed readings and matching intermediate checkpoints are preserved */
             202: {
                 headers: {
                     [name: string]: unknown;

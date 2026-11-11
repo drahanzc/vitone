@@ -8,6 +8,7 @@ import {
   AdminLoginPage,
   AdminProtectedLayout,
 } from './admin/AdminApp'
+import { AdminAssessmentMonitorPage } from './admin/AdminAssessmentMonitorPage'
 import { AssessmentRoute } from './screens/AssessmentFlow'
 import { HomePage } from './screens/HomePage'
 import { NotFoundPage } from './screens/NotFoundPage'
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/admin" element={<AdminProtectedLayout />}>
           <Route index element={<AdminDashboardPage />} />
           <Route path="assessments" element={<AdminAssessmentsPage />} />
+          <Route path="assessments/:id/monitor" element={<AdminAssessmentMonitorPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

@@ -361,6 +361,27 @@
 .admin-results-table th:nth-child(5), .admin-results-table td:nth-child(5),
 .admin-results-table th:nth-child(6), .admin-results-table td:nth-child(6) { width: 1%; }
 .admin-failure-reason { display: block; width: 200px; max-width: 40vw; color: #a93b3b; font-size: 12px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.admin-failed-result { display: grid; gap: 6px; }
+.admin-failed-result .admin-text-link { font-size: 12px; white-space: nowrap; }
+.admin-monitor-page { display: grid; align-content: start; gap: 20px; }
+.admin-monitor-summary, .admin-monitor-steps, .admin-monitor-readings { padding: 24px; }
+.admin-monitor-summary, .admin-monitor-steps-heading, .admin-checkpoint-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.admin-monitor-summary h2 { margin: 0; color: var(--ink); font-size: 18px; }
+.admin-monitor-summary p, .admin-monitor-help, .admin-monitor-empty { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.admin-monitor-summary .admin-monitor-id { overflow-wrap: anywhere; font-size: 12px; }
+.admin-monitor-summary .admin-status, .admin-checkpoint-heading .admin-status { flex: none; font-size: 12px; }
+.admin-monitor-steps-heading { flex-wrap: wrap; align-items: center; }
+.admin-monitor-help { margin: 18px 0; }
+.admin-monitor-notice { margin: 16px 0 0; color: #268348; font-size: 13px; }
+.admin-monitor-steps .admin-error-banner, .admin-monitor-steps .admin-form-error { margin-top: 16px; }
+.admin-checkpoint-list { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.admin-checkpoint-list li { padding: 16px; border: 1px solid #e9edf3; border-radius: 12px; background: #fafbfe; }
+.admin-checkpoint-heading strong { color: var(--ink); font-size: 14px; }
+.admin-checkpoint-list li p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-checkpoint-list li .admin-checkpoint-error { color: #a93b3b; }
+.admin-monitor-readings ul { padding: 0; margin: 16px 0 0; list-style: none; }
+.admin-monitor-readings li { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid #e9edf3; color: var(--ink); font-size: 13px; }
+.admin-monitor-readings li span { color: var(--muted); }
 .admin-rerun-action { width: max-content; max-width: 240px; white-space: normal; }
 .admin-rerun-trigger, .admin-rerun-confirm-button, .admin-rerun-cancel { min-height: 32px; padding: 6px 10px; border: 1px solid #dce5f3; border-radius: 8px; background: #f7f9ff; color: var(--blue); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .admin-rerun-trigger:hover, .admin-rerun-cancel:hover:not(:disabled) { border-color: #b9cbed; background: #edf3ff; }
@@ -416,6 +437,8 @@
 .admin-report-download:hover:not(:disabled) { border-color: #c5d5f5; background: #f7f9ff; }
 .admin-report-download svg { width: 16px; height: 16px; }
 .admin-report-download:disabled { opacity: 0.6; cursor: wait; }
+.admin-troubleshoot-button { color: #3e3e3e; text-decoration: none; }
+.admin-troubleshoot-button:hover { border-color: #d5d8de; background: #f7f8fa; }
 .admin-report-error { display: block; max-width: 240px; margin-top: 4px; color: #a93b3b; font-size: 12px; }
 .admin-results-heading h3 { margin: 0; color: var(--ink); font-size: 18px; }
 .admin-results-heading p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }

@@ -2,11 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { getAssessmentLinks, getLinkAssessments, getLinkedAssessment, getPassages, type AssessmentLink, type AssessmentListItem, type CenterSession, type PassageChoice } from './admin-api'
 import { useCenterAuth } from './center-auth-context'
-import { failureReason, formatDate, isShareableLink, matchesSubmissionFilter, statusName, statusStyle, useCopyAssessmentLink, type SubmissionFilter } from './assessment-utils'
+import { formatDate, isShareableLink, matchesSubmissionFilter, statusName, statusStyle, useCopyAssessmentLink, type SubmissionFilter } from './assessment-utils'
 import { CreateLinkDialog } from './CreateLinkDialog'
 import { MetricCard } from './MetricCard'
 import { ReportDownload } from './ReportDownload'
-import { AssessmentRerunButton } from './AssessmentRerunButton'
 import { Icon } from './AdminPrimitives'
 
 export function AdminAssessmentsPage() {
@@ -205,21 +204,21 @@ function SubmissionTable({ link, filter, session, updateSession, onSubmissionCha
 
   return (
     <>
-        <div className="admin-table-scroll">
-          <table className="admin-table admin-results-table">
-            <thead><tr><th>Student</th><th>Email</th><th>Submitted at</th><th>Status</th><th>Result</th><th>Actions</th></tr></thead>
-            <tbody>
-              {items.map(item => <SubmissionRow key={item.id} item={item} session={session} updateSession={updateSession} onStatusChange={updateStatus} />)}
-              {!items.length && !error ? <tr><td className="admin-table-message" colSpan={6}>{loading ? 'Loading submissions…' : cursor ? 'No matches in the pages checked. Load more to continue.' : 'No submissions in this view.'}</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-        {notice ? <p role="status">{notice}</p> : null}
-        {error ? <p className="admin-form-error" role="alert">{error} <button type="button" className="admin-assessment-select" onClick={() => { setError(''); setLoading(true); setAttempt(value => value + 1) }}>Try again</button></p> : null}
-        <div className="admin-results-footer">
-          <span>{items.length} {items.length === 1 ? 'submission' : 'submissions'} loaded</span>
-          {cursor && !error ? <button className="admin-outline-button" type="button" disabled={loading} onClick={() => { setLoading(true); setRequestCursor(cursor) }}>{loading ? 'Loading…' : 'Load more'}</button> : null}
-        </div>
+      <div className="admin-table-scroll">
+        <table className="admin-table admin-results-table">
+          <thead><tr><th>Student</th><th>Email</th><th>Submitted at</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody>
+            {items.map(item => <SubmissionRow key={item.id} item={item} session={session} updateSession={updateSession} onStatusChange={updateStatus} />)}
+            {!items.length && !error ? <tr><td className="admin-table-message" colSpan={5}>{loading ? 'Loading submissions…' : cursor ? 'No matches in the pages checked. Load more to continue.' : 'No submissions in this view.'}</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+      {notice ? <p role="status">{notice}</p> : null}
+      {error ? <p className="admin-form-error" role="alert">{error} <button type="button" className="admin-assessment-select" onClick={() => { setError(''); setLoading(true); setAttempt(value => value + 1) }}>Try again</button></p> : null}
+      <div className="admin-results-footer">
+        <span>{items.length} {items.length === 1 ? 'submission' : 'submissions'} loaded</span>
+        {cursor && !error ? <button className="admin-outline-button" type="button" disabled={loading} onClick={() => { setLoading(true); setRequestCursor(cursor) }}>{loading ? 'Loading…' : 'Load more'}</button> : null}
+      </div>
     </>
   )
 }
@@ -245,7 +244,7 @@ function SubmissionRow({ item, session, updateSession, onStatusChange }: {
         if (!active || version !== detailVersion.current) return
         setDetail(value)
         setFailed(false)
-        if (value.status !== item.status) onStatusChange(item.id, value.status, value.completed_at)
+        if (value.status !== item.status) onStatusChange(item.id, value.status, value.completed_at ?? null)
         if (matchesSubmissionFilter(value.status, 'processing')) {
           timer = window.setTimeout(() => void loadDetail(), 5000)
         }
@@ -263,12 +262,9 @@ function SubmissionRow({ item, session, updateSession, onStatusChange }: {
     <td>{formatDate(item.created_at)}</td>
     <td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td>
     <td>{item.status === 'COMPLETED' ? <ReportDownload item={item} session={session} updateSession={updateSession} />
-      : item.status === 'FAILED' ? <span className="admin-failure-reason">{failed ? 'Reason unavailable' : detail ? detail.failure_message || failureReason(detail.failure_code) : 'Loading reason…'}</span> : '—'}</td>
-    <td><AssessmentRerunButton item={item} session={session} updateSession={updateSession} onQueued={() => {
-      detailVersion.current += 1
-      setDetail(null)
-      setFailed(false)
-      onStatusChange(item.id, 'UPLOADED', null, true)
-    }} /></td>
+      : item.status === 'FAILED' ?
+        <div className="admin-failed-result">
+          <Link className="admin-report-download admin-troubleshoot-button" to={`/admin/assessments/${encodeURIComponent(item.id)}/monitor`}><Icon name="settings" /><span>Troubleshoot<span className="visually-hidden"> {item.learner_reference}</span></span></Link>
+        </div> : '—'}</td>
   </tr>
 }

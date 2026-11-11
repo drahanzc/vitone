@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { getAssessmentResultDetails, type AssessmentResultDetails, type CenterSession } from './admin-api'
 import { Icon } from './AdminPrimitives'
 import { mergeResultDetailsPage, resultDetailKey as rowKey, resultFindingLocation } from './result-details-utils'
@@ -41,6 +42,9 @@ export function AssessmentResultDetailsDialog({ assessmentId, learnerReference, 
           <p id={descriptionId}>Confirmed detector errors and uncertain evidence are shown separately. For percentage checks, uncertain examples can lower a band without being pronunciation errors.</p></div>
         <button className="admin-result-details-close" type="button" aria-label="Close result details" onClick={close} autoFocus><Icon name="close" /></button>
       </header>
+      <div className="admin-heading-actions">
+        <Link className="admin-outline-button" to={`/admin/assessments/${encodeURIComponent(assessmentId)}/monitor`} onClick={close}>Monitor / Troubleshoot</Link>
+      </div>
       <ResultFindings key={`${assessmentId}:${readingIndex ?? 'all'}`} assessmentId={assessmentId} session={session} updateSession={updateSession}
         readingIndex={readingIndex} onReadingChange={setReadingIndex} />
     </dialog>

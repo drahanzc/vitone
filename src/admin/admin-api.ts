@@ -274,6 +274,14 @@ export function rerunAssessment(
   })
 }
 
+export function retryAssessment(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+): Promise<components['schemas']['Assessment']> {
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/retry`, session, onSessionChange, { method: 'POST' })
+}
+
 export function getLinkedAssessment(
   assessmentId: string,
   session: CenterSession,

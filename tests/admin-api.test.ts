@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { CenterApiError, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, rerunAssessment, type CenterSession } from '../src/admin/admin-api'
+import { CenterApiError, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, rerunAssessment, retryAssessment, type CenterSession } from '../src/admin/admin-api'
 
 const session: CenterSession = { accessToken: 'access', refreshToken: 'refresh', expiresAt: Date.now() + 3600_000 }
 const originalFetch = globalThis.fetch
@@ -27,6 +27,21 @@ describe('center assessment API', () => {
     const queued = await rerunAssessment('student/id', session, () => {})
     expect(queued.status).toBe('UPLOADED')
     expect(queued.completed_at).toBeNull()
+  })
+
+  test('retries a failed assessment with an authenticated POST and surfaces conflicts', async () => {
+    let calls = 0
+    globalThis.fetch = (async (input, init) => {
+      calls++
+      expect(String(input).endsWith('/assessments/student%2Fid/retry')).toBe(true)
+      expect(init?.method).toBe('POST')
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+      return calls === 1 ? Response.json({ id: 'student/id', status: 'UPLOADED' }, { status: 202 })
+        : Response.json({ error: { code: 'CONFLICT', message: 'Assessment is not failed.' } }, { status: 409 })
+    }) as typeof fetch
+    expect((await retryAssessment('student/id', session, () => {})).status).toBe('UPLOADED')
+    await expect(retryAssessment('student/id', session, () => {})).rejects.toThrow('Assessment is not failed.')
+    expect(calls).toBe(2)
   })
 
   test('sends the rebuild query option only when explicitly enabled', async () => {

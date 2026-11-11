@@ -31,6 +31,21 @@ On `/admin/assessments`, completed submissions have **PDF** (download), **View P
 
 The table shows check, target example/location, expected/observed details when recorded, and the detector reason. Missing historical evidence and unscored report items are identified explicitly. Raw provider data and numeric scores are not displayed. Closing the modal or changing reading filters cancels the pending request.
 
+## Rerun with rebuilt word alignment
+
+On completed or failed submissions, click **Rerun assessment**. Leave **Rebuild
+word alignment** unchecked for the existing saved-evidence rescore. After editing
+saved provider responses in an isolated test database, select it before **Confirm
+rerun** to rebuild word alignment from those responses and generate a new report.
+The option is off by default and resets after cancellation or successful queueing.
+
+Rebuilding does not call Azure or read/process audio. It replaces saved alignment
+and discards local pitch/acoustic sidecars; audio-dependent items may therefore be
+unassessable. It cannot make synthetic responses correspond to the original audio.
+Both rerun modes replace the previous report. Deploy the updated backend and UI
+together before using this option; the backend applies migration
+`0005_rescore_word_alignment.sql` at startup and persists the choice with the job.
+
 ## OpenAPI types
 
 `assets/open-api.json` is the OpenAPI 3.1 document used to generate frontend types in `src/api-schema.d.ts`. Refresh the JSON from the running backend when its API contract changes, then regenerate the types:

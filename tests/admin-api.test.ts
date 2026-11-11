@@ -18,7 +18,7 @@ describe('center assessment API', () => {
 
   test('queues rescoring using an authenticated POST with an encoded submission ID', async () => {
     globalThis.fetch = (async (input, init) => {
-      expect(String(input)).toContain('/assessments/student%2Fid/rerun')
+      expect(String(input).endsWith('/assessments/student%2Fid/rerun')).toBe(true)
       expect(init?.method).toBe('POST')
       expect(init?.body).toBeUndefined()
       expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
@@ -27,6 +27,20 @@ describe('center assessment API', () => {
     const queued = await rerunAssessment('student/id', session, () => {})
     expect(queued.status).toBe('UPLOADED')
     expect(queued.completed_at).toBeNull()
+  })
+
+  test('sends the rebuild query option only when explicitly enabled', async () => {
+    for (const rebuild of [false, true]) {
+      globalThis.fetch = (async (input, init) => {
+        const url = new URL(String(input), 'http://localhost')
+        expect(url.searchParams.get('rebuild_word_alignment')).toBe(rebuild ? 'true' : null)
+        expect(init?.method).toBe('POST')
+        expect(init?.body).toBeUndefined()
+        expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+        return Response.json({ id: 'id', status: 'UPLOADED' }, { status: 202 })
+      }) as typeof fetch
+      expect((await rerunAssessment('id', session, () => {}, { rebuild_word_alignment: rebuild })).status).toBe('UPLOADED')
+    }
   })
 
   test('surfaces rerun conflicts without automatically submitting another rerun', async () => {
@@ -57,10 +71,11 @@ describe('center assessment API', () => {
       const token = new Headers(init?.headers).get('Authorization')
       if (token === 'Bearer access') return new Response(null, { status: 401 })
       expect(token).toBe('Bearer rerun-access')
+      expect(String(input).endsWith('/rerun?rebuild_word_alignment=true')).toBe(true)
       return Response.json({ id: 'id', status: 'UPLOADED' }, { status: 202 })
     }) as typeof fetch
     let refreshed: CenterSession | null = null
-    expect((await rerunAssessment('id', session, value => { refreshed = value })).status).toBe('UPLOADED')
+    expect((await rerunAssessment('id', session, value => { refreshed = value }, { rebuild_word_alignment: true })).status).toBe('UPLOADED')
     expect(refreshed?.accessToken).toBe('rerun-access')
     expect(paths).toHaveLength(3)
   })

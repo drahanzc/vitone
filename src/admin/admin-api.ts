@@ -1,4 +1,4 @@
-import { apiUrl, type components } from '../api'
+import { apiUrl, type components, type paths } from '../api'
 
 const SESSION_KEY = 'vitone:center-session'
 const REFRESH_BEFORE_EXPIRY_MS = 45_000
@@ -266,8 +266,10 @@ export function rerunAssessment(
   assessmentId: string,
   session: CenterSession,
   onSessionChange: (session: CenterSession | null) => void,
+  options: NonNullable<paths['assessments/{id}/rerun']['post']['parameters']['query']> = {},
 ): Promise<components['schemas']['Assessment']> {
-  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/rerun`, session, onSessionChange, {
+  const query = options.rebuild_word_alignment ? '?rebuild_word_alignment=true' : ''
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/rerun${query}`, session, onSessionChange, {
     method: 'POST',
   })
 }

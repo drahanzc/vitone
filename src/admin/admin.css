@@ -366,6 +366,9 @@
 .admin-rerun-trigger:hover, .admin-rerun-cancel:hover:not(:disabled) { border-color: #b9cbed; background: #edf3ff; }
 .admin-rerun-confirm { width: 220px; padding: 10px; border: 1px solid #f0dfb8; border-radius: 12px; background: #fffbf2; }
 .admin-rerun-confirm p { margin: 0 0 10px; color: #635334; font-size: 12px; line-height: 1.4; }
+.admin-rerun-option { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 8px; color: #635334; font-size: 12px; font-weight: 600; }
+.admin-rerun-option input { flex: none; width: auto; margin: 2px 0 0; }
+.admin-rerun-confirm .admin-rerun-warning { font-size: 11px; }
 .admin-rerun-buttons { display: flex; align-items: center; gap: 6px; }
 .admin-rerun-confirm-button { border-color: var(--blue); background: var(--blue); color: #fff; }
 .admin-rerun-confirm-button:hover:not(:disabled) { background: #0736a4; }

@@ -8,7 +8,7 @@ export function AssessmentRerunButton({ item, session, updateSession, onQueued }
   updateSession: (session: CenterSession | null) => void
   onQueued: () => void
 }) {
-  const [{ confirming, busy, error }, dispatch] = useReducer(rerunStateReducer, initialRerunState)
+  const [{ confirming, busy, error, rebuildWordAlignment }, dispatch] = useReducer(rerunStateReducer, initialRerunState)
   const inFlight = useRef(false)
   const mounted = useRef(true)
 
@@ -24,7 +24,7 @@ export function AssessmentRerunButton({ item, session, updateSession, onQueued }
     inFlight.current = true
     dispatch({ type: 'start' })
     try {
-      await rerunAssessment(item.id, session, updateSession)
+      await rerunAssessment(item.id, session, updateSession, { rebuild_word_alignment: rebuildWordAlignment })
       if (mounted.current) {
         dispatch({ type: 'queued' })
         onQueued()
@@ -37,13 +37,31 @@ export function AssessmentRerunButton({ item, session, updateSession, onQueued }
   }
 
   return <div className="admin-rerun-action">
-    {confirming ? <div className="admin-rerun-confirm">
-      <p>Recalculate scoring using the saved Azure results? This replaces the report without calling Azure again.</p>
-      <div className="admin-rerun-buttons">
-        <button className="admin-rerun-confirm-button" type="button" disabled={busy} onClick={() => void rerun()}>{busy ? 'Queueing…' : 'Confirm rerun'}</button>
-        <button className="admin-rerun-cancel" type="button" disabled={busy} onClick={() => dispatch({ type: 'cancel' })}>Cancel</button>
-      </div>
-    </div> : <button className="admin-rerun-trigger" type="button" aria-label={`Rerun assessment for ${item.learner_reference}`} onClick={() => dispatch({ type: 'confirm' })}>Rerun assessment</button>}
+    {confirming ? <RerunConfirmation busy={busy} rebuildWordAlignment={rebuildWordAlignment}
+      onRebuildChange={value => dispatch({ type: 'set-rebuild', value })}
+      onConfirm={() => void rerun()} onCancel={() => dispatch({ type: 'cancel' })}
+    /> : <button className="admin-rerun-trigger" type="button" aria-label={`Rerun assessment for ${item.learner_reference}`} onClick={() => dispatch({ type: 'confirm' })}>Rerun assessment</button>}
     {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
+  </div>
+}
+
+export function RerunConfirmation({ busy, rebuildWordAlignment, onRebuildChange, onConfirm, onCancel }: {
+  busy: boolean
+  rebuildWordAlignment: boolean
+  onRebuildChange: (value: boolean) => void
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return <div className="admin-rerun-confirm">
+    <p>Recalculate scoring using the saved Azure results? This replaces the report without calling Azure again.</p>
+    <label className="admin-rerun-option">
+      <input type="checkbox" checked={rebuildWordAlignment} disabled={busy} onChange={event => onRebuildChange(event.currentTarget.checked)} />
+      Rebuild word alignment
+    </label>
+    <p className="admin-rerun-warning">If selected, rebuilds alignment from saved responses and discards saved pitch/acoustic evidence. Audio-dependent items may become unassessable. No audio is processed.</p>
+    <div className="admin-rerun-buttons">
+      <button className="admin-rerun-confirm-button" type="button" disabled={busy} onClick={onConfirm}>{busy ? 'Queueing…' : 'Confirm rerun'}</button>
+      <button className="admin-rerun-cancel" type="button" disabled={busy} onClick={onCancel}>Cancel</button>
+    </div>
   </div>
 }

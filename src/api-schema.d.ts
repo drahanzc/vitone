@@ -241,8 +241,11 @@ export interface paths {
          * Recalculates scoring from saved engine results, replacing the previous report.
          * @description Only completed or failed submissions owned by the authenticated center with
          *     successful saved results for every reading are eligible. Provider responses
-         *     and alignments are preserved; only findings, coverage, and the report are
-         *     rebuilt. This job never calls Azure and works without Azure credentials.
+         *     are preserved. By default saved alignment is reused. With
+         *     rebuild_word_alignment=true, word alignment is rebuilt from saved responses
+         *     and replaces the old alignment without pitch/acoustic sidecars; audio-dependent
+         *     items may become unassessable. Both modes regenerate findings, coverage and
+         *     the report. This job never calls Azure and works without Azure credentials.
          */
         post: operations["rerun_linked_assessment"];
         delete?: never;
@@ -582,8 +585,9 @@ export interface components {
         CreateLinkedAssessmentRequest: {
             /**
              * Format: binary
-             * @description Original WAV, WebM, MP4, M4A (`audio/m4a` or `audio/x-m4a`), Ogg, MP3 (audio/mpeg), or MOV (video/quicktime)
-             *     recording containing all required readings. MOV must contain an audio track;
+             * @description Original WAV, WebM, MP4, M4A (`audio/m4a` or `audio/x-m4a`), Ogg,
+             *     MP3 (audio/mpeg), or MOV (video/quicktime) recording containing all
+             *     required readings. MOV must contain an audio track;
              *     video is ignored during audio processing.
              * @example assessment.webm
              */
@@ -967,7 +971,11 @@ export interface components {
             required_readings: number;
             rule_set_version: string;
         };
-        /** @description One flat row for an item from MIN_SCORING_ITEM_ID through MAX_SCORING_ITEM_ID. */
+        /**
+         * @description One flat row for an item from MIN_SCORING_ITEM_ID through MAX_SCORING_ITEM_ID.
+         *     Item 55 requires complete coverage of every required reading before an
+         *     incidence band can be awarded; incomplete coverage remains unscored.
+         */
         ReportItem: {
             band?: components["schemas"]["ScoreBand"] | null;
             /**
@@ -2066,7 +2074,13 @@ export interface operations {
     };
     rerun_linked_assessment: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Default false preserves saved alignment. True rebuilds word alignment from saved responses and discards old pitch/acoustic sidecars; no Azure or audio processing.
+                 * @example false
+                 */
+                rebuild_word_alignment?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Student submission ID */
@@ -2083,6 +2097,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Assessment"];
+                };
+            };
+            /** @description Invalid rerun query parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Center authentication required */

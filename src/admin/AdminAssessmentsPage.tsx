@@ -6,6 +6,7 @@ import { formatDate, isShareableLink, matchesSubmissionFilter, statusName, statu
 import { CreateLinkDialog } from './CreateLinkDialog'
 import { MetricCard } from './MetricCard'
 import { ReportDownload } from './ReportDownload'
+import { AssessmentRerunButton } from './AssessmentRerunButton'
 import { Icon } from './AdminPrimitives'
 
 export function AdminAssessmentsPage() {
@@ -223,7 +224,7 @@ function SubmissionTable({ link, filter, session, updateSession, onSubmissionCha
   )
 }
 
-function SubmissionRow({ item, session, updateSession, onStatusChange }: {
+export function SubmissionRow({ item, session, updateSession, onStatusChange }: {
   item: AssessmentListItem
   session: CenterSession
   updateSession: (session: CenterSession | null) => void
@@ -261,10 +262,17 @@ function SubmissionRow({ item, session, updateSession, onStatusChange }: {
     <td>{failed ? <button className="admin-assessment-select" type="button" onClick={() => { setFailed(false); setDetail(null); setAttempt(value => value + 1) }}>Details unavailable · Retry</button> : detail ? detail.learner_email || '—' : 'Loading…'}</td>
     <td>{formatDate(item.created_at)}</td>
     <td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td>
-    <td>{item.status === 'COMPLETED' ? <ReportDownload item={item} session={session} updateSession={updateSession} />
-      : item.status === 'FAILED' ?
+    <td>{item.status === 'COMPLETED' || item.status === 'FAILED' ? <>
+      {item.status === 'COMPLETED' ? <ReportDownload item={item} session={session} updateSession={updateSession} /> :
         <div className="admin-failed-result">
           <Link className="admin-report-download admin-troubleshoot-button" to={`/admin/assessments/${encodeURIComponent(item.id)}/monitor`}><Icon name="settings" /><span>Troubleshoot<span className="visually-hidden"> {item.learner_reference}</span></span></Link>
-        </div> : '—'}</td>
+        </div>}
+      <AssessmentRerunButton item={item} session={session} updateSession={updateSession} onQueued={() => {
+        // Ignore detail requests started before the old scoring report was removed.
+        detailVersion.current += 1
+        setDetail(null)
+        onStatusChange(item.id, 'UPLOADED', null, true)
+      }} />
+    </> : '—'}</td>
   </tr>
 }

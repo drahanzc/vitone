@@ -48,19 +48,41 @@ const unscoredReasonText: Record<string, string> = {
   TARGET_RECONCILIATION: 'The target could not be matched reliably to the passage.',
 }
 
-function ReportItemCard({ item }: { item: ReportItem }) {
+const LOWER_CONFIDENCE_LINKING_BREAK_BASIS = 'LOWER_CONFIDENCE_LINKING_BREAK_PROXY'
+const UNVALIDATED_LINKING_BREAK_REASONS = new Set([
+  'linking_break_policy_uncalibrated',
+  'unexpected_linking_break_candidate_uncalibrated',
+])
+
+function hasLowerConfidenceLinkingBreakBasis(item: ReportItem): boolean {
+  return 'assessment_basis' in item && item.assessment_basis === LOWER_CONFIDENCE_LINKING_BREAK_BASIS
+}
+
+export function ReportItemCard({ item }: { item: ReportItem }) {
+  const hasProxyBasis = hasLowerConfidenceLinkingBreakBasis(item)
+  const policyNotValidated = hasProxyBasis && item.status === 'UNSCORED'
+    && item.blocking_targets?.some(blocker => UNVALIDATED_LINKING_BREAK_REASONS.has(blocker.reason))
+
   return (
     <article className="report-item-card">
       <div className="report-item-heading">
         <div><span className="item-kicker">Assessment item</span><h3>Item {item.item_id}</h3></div>
         <span className={`result-tag ${bandClass(item)}`}>{bandLabel(item)}</span>
       </div>
+      {hasProxyBasis ? <p className="item-detail assessment-basis-note">
+        Lower-confidence linking-break proxy. This result does not confirm a physiological glottal stop.
+      </p> : null}
       {item.status === 'UNSCORED' ? (
         <div className="item-detail">
           <p>{unscoredReasonText[item.unscored_reason || ''] || 'This item could not be assessed.'}</p>
+          {policyNotValidated ? <p className="blocker-note">
+            This check is not scored because its detection policy has not been validated.
+          </p> : null}
           {item.blocking_targets?.map((blocker, index) => (
             <p className="blocker-note" key={`${blocker.target_occurrence_id}-${index}`}>
-              Reading {blocker.reading_number}: {humanize(blocker.outcome)} — {humanize(blocker.reason)}.
+              Reading {blocker.reading_number}: {humanize(blocker.outcome)} — {UNVALIDATED_LINKING_BREAK_REASONS.has(blocker.reason)
+                ? 'Detection policy has not been validated'
+                : humanize(blocker.reason)}.
             </p>
           ))}
         </div>

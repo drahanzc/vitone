@@ -31,6 +31,8 @@ On `/admin/assessments`, completed submissions have **PDF** (download), **View P
 
 The table shows check, target example/location, expected/observed details when recorded, and the detector reason. Missing historical evidence and unscored report items are identified explicitly. Raw provider data and numeric scores are not displayed. Closing the modal or changing reading filters cancels the pending request.
 
+Completed and failed submissions also have **Rerun assessment** in the **Result** column. Confirming queues only engine scoring from saved Azure results, without calling Azure or processing audio again. The previous report is replaced and the row updates while rescoring runs. Every reading must have a successful saved engine result; otherwise the server rejects the rerun. Leave **Rebuild word alignment** unchecked to preserve saved alignment and acoustic evidence.
+
 ## Assessment monitoring
 
 On `/admin/assessments`, the **Monitor / Troubleshoot** link beneath each student

@@ -437,14 +437,16 @@
 .admin-report-download:hover:not(:disabled) { border-color: #c5d5f5; background: #f7f9ff; }
 .admin-report-download svg { width: 16px; height: 16px; }
 .admin-report-download:disabled { opacity: 0.6; cursor: wait; }
-.report-share-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-width: none; max-height: min(90dvh, 780px); margin: auto; padding: 24px; overflow: auto; border: 1px solid #e2e7ef; border-radius: 20px; background: #fff; color: #081333; box-shadow: 0 24px 80px rgb(8 19 51 / 22%); }
+/* A modal still inherits the table cell's nowrap style through its DOM parent. */
+.report-share-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-width: none; max-height: min(90dvh, 780px); margin: auto; padding: 24px; overflow: auto; white-space: normal; overflow-wrap: anywhere; border: 1px solid #e2e7ef; border-radius: 20px; background: #fff; color: #081333; box-shadow: 0 24px 80px rgb(8 19 51 / 22%); }
 .report-share-dialog::backdrop { background: rgb(12 22 43 / 48%); backdrop-filter: blur(3px); }
 .report-share-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.report-share-heading > div { min-width: 0; }
 .report-share-heading .eyebrow { color: #62718a; font-size: 11px; }
 .report-share-heading h2 { margin: 4px 0 4px; font-size: 22px; }
 .report-share-heading p { margin: 0; color: #687486; font-size: 13px; }
 .report-share-dialog p { color: #59677b; font-size: 13px; line-height: 1.55; }
-.report-share-active, .report-share-empty { display: grid; gap: 12px; }
+.report-share-active, .report-share-empty { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .report-share-active > p:first-child, .report-share-empty > p:first-child { margin: 0 0 2px; }
 .report-share-link-label { color: #273650; font-size: 12px; font-weight: 600; }
 .report-share-url-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }

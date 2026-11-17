@@ -243,8 +243,9 @@ export interface paths {
          *     successful saved results for every reading are eligible. Provider responses
          *     are preserved. By default saved alignment is reused. With
          *     rebuild_word_alignment=true, word alignment is rebuilt from saved responses
-         *     and replaces the old alignment without pitch/acoustic sidecars; audio-dependent
-         *     items may become unassessable. Both modes regenerate findings, coverage and
+         *     and preserves valid saved pitch tracks from the same reading. Synthetic
+         *     responses or mismatched response provenance cannot reuse acoustic evidence.
+         *     Missing pitch is not recovered. Both modes regenerate findings, coverage and
          *     the report. This job never calls Azure and works without Azure credentials.
          */
         post: operations["rerun_linked_assessment"];
@@ -480,6 +481,7 @@ export interface components {
             step: number;
         };
         AssessmentErrorDetail: {
+            assessment_basis?: components["schemas"]["ReportAssessmentBasis"] | null;
             /** @description Reference sentence context from the immutable passage, never inferred audio text. */
             context?: string | null;
             example?: string | null;
@@ -688,6 +690,7 @@ export interface components {
          *     availability, reading filters, and findings pagination.
          */
         NonPerfectScoredItem: {
+            assessment_basis?: components["schemas"]["ReportAssessmentBasis"] | null;
             band: components["schemas"]["ScoreBand"];
             /** Format: int32 */
             item_id: number;
@@ -976,6 +979,11 @@ export interface components {
          * @enum {string}
          */
         ReportAreaKind: "VOWELS" | "CONSONANTS" | "FINAL_AND_EXTRA_SOUNDS" | "STRESS_AND_RHYTHM" | "INTONATION";
+        /**
+         * @description Optional provenance for the lower-confidence Azure Break and phone-timing proxy, which does not confirm physiological glottal closure, or provisional sentence-stress results not validated against expert judgments.
+         * @enum {string}
+         */
+        ReportAssessmentBasis: "LOWER_CONFIDENCE_LINKING_BREAK_PROXY" | "PROVISIONAL_SENTENCE_STRESS";
         /** @description Versioned, provenance-bound report content with one row per rubric item. */
         ReportContent: {
             /** @description Absent on historical snapshots created before area aggregation. */
@@ -996,6 +1004,7 @@ export interface components {
          *     incidence band can be awarded; incomplete coverage remains unscored.
          */
         ReportItem: {
+            assessment_basis?: components["schemas"]["ReportAssessmentBasis"] | null;
             band?: components["schemas"]["ScoreBand"] | null;
             /**
              * @description Uncertain targets and reasons, including those that lower a scored band.
@@ -2095,7 +2104,7 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Default false preserves saved alignment. True rebuilds word alignment from saved responses and discards old pitch/acoustic sidecars; no Azure or audio processing.
+                 * @description Default false preserves saved alignment. True rebuilds word alignment while preserving valid saved pitch from the same reading; synthetic responses and mismatched response provenance cannot reuse pitch. Missing pitch is not recovered; no Azure or audio processing.
                  * @example false
                  */
                 rebuild_word_alignment?: boolean;

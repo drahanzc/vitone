@@ -361,7 +361,7 @@
 .admin-results-table th:nth-child(5), .admin-results-table td:nth-child(5),
 .admin-results-table th:nth-child(6), .admin-results-table td:nth-child(6) { width: 1%; }
 .admin-failure-reason { display: block; width: 200px; max-width: 40vw; color: #a93b3b; font-size: 12px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
-.admin-failed-result { display: grid; gap: 6px; }
+.admin-result-actions, .admin-failed-result { display: grid; justify-items: start; gap: 6px; }
 .admin-failed-result .admin-text-link { font-size: 12px; white-space: nowrap; }
 .admin-monitor-page { display: grid; align-content: start; gap: 20px; }
 .admin-monitor-summary, .admin-monitor-steps, .admin-monitor-readings { padding: 24px; }

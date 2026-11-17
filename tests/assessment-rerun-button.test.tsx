@@ -43,12 +43,13 @@ describe('assessment rerun button', () => {
     expect(rerunStateReducer(failed, { type: 'cancel' })).toEqual(initialRerunState)
   })
 
-  test('offers an unchecked rebuild option with an explicit acoustic-evidence warning', () => {
+  test('offers an unchecked rebuild option explaining pitch preservation and recovery limits', () => {
     const html = renderToStaticMarkup(<RerunConfirmation busy={false} rebuildWordAlignment={false} onRebuildChange={() => {}} onConfirm={() => {}} onCancel={() => {}} />)
     expect(html).toContain('type="checkbox"')
     expect(html).toContain('Rebuild word alignment')
-    expect(html).toContain('discards saved pitch/acoustic evidence')
-    expect(html).toContain('Audio-dependent items may become unassessable')
+    expect(html).toContain('keeps valid saved pitch from the same reading')
+    expect(html).toContain('Missing pitch cannot be restored by rerunning')
+    expect(html).toContain('Synthetic or incompatible evidence cannot be reused')
     expect(html).not.toContain('checked=""')
     const pending = renderToStaticMarkup(<RerunConfirmation busy={true} rebuildWordAlignment={true} onRebuildChange={() => {}} onConfirm={() => {}} onCancel={() => {}} />)
     expect(pending).toContain('checked=""')

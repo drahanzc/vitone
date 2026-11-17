@@ -16,6 +16,8 @@ type ErrorDetail = AssessmentResultDetails['errors'][number]
 type UncertaintyDetail = AssessmentResultDetails['uncertainties'][number]
 type Summary = AssessmentResultDetails['item_summaries'][number]
 type NonPerfectItem = AssessmentResultDetails['non_perfect_items'][number]
+const provisionalSentenceStressExplanation = 'Provisional sentence-stress detector; not validated against expert judgments.'
+
 export function AssessmentResultDetailsDialog({ assessmentId, learnerReference, session, updateSession, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -128,6 +130,7 @@ export function ResultEvidenceSummary({ items, summaries, errors = [], hasMoreFi
   // checks), and must not disappear when the selected reading has no findings.
   const tracked = (items ?? [...grouped.values()])
     .filter(row => row.band && row.band !== 'Perfect').sort((a, b) => a.item_id - b.item_id)
+  const provisionalSentenceStressNote = 'This provisional detector has not been validated against expert judgments.'
   return <section className="admin-evidence-summary" aria-label="Scored items below Perfect">
     <h3>Scored items below Perfect{items ? ` (${tracked.length})` : ''}</h3>
     <p>Perfect and unscored checks are omitted. Saved bands cover all readings, even when you filter the evidence below. For percentage checks, uncertain examples remain in the denominator; they are not confirmed pronunciation errors.</p>
@@ -135,29 +138,38 @@ export function ResultEvidenceSummary({ items, summaries, errors = [], hasMoreFi
     {!tracked.length ? <p>{items ? 'No scored items below Perfect.' : 'No below-Perfect checks in the available summaries.'}</p> : null}
     <div className="admin-table-scroll"><table className="admin-table admin-evidence-summary-table">
       <caption className="visually-hidden">Coverage for {readingIndex === undefined ? 'all readings' : `Reading ${readingIndex}`}; saved bands are unchanged</caption>
-      <thead><tr><th scope="col">Check</th><th scope="col">Saved band (all readings)</th><th scope="col">Counted as correct</th><th scope="col">Error examples</th><th scope="col">Uncertain examples</th><th scope="col">Confirmed error words / positions</th><th scope="col">Explanation</th></tr></thead>
+      <thead><tr><th scope="col">Check</th><th scope="col">Saved band (all readings)</th><th scope="col">Counted as correct</th><th scope="col">Error examples</th><th scope="col">Uncertain examples</th><th scope="col">Error words / positions</th><th scope="col">Explanation</th></tr></thead>
       <tbody>{tracked.map(item => {
         const row = grouped.get(item.item_id)
+        const provisionalSentenceStress = 'assessment_basis' in item && item.assessment_basis === 'PROVISIONAL_SENTENCE_STRESS'
         const locations = errors.filter(error => error.item_id === item.item_id
           && (readingIndex === undefined || error.reading_index === readingIndex))
+        const explanation = !row ? 'No percentage-example summary is available for this check. Review the findings below.'
+          : !row.details_available ? 'Some selected readings lack detailed evidence; counts cannot explain the saved band reliably.'
+          : row.uncertainty_affects_band ? row.error_examples === 0
+            ? provisionalSentenceStress
+              ? 'No stored error examples, but some examples could not be confirmed. This reduces the percentage.'
+              : 'No confirmed pronunciation errors, but some examples could not be confirmed. This reduces the percentage.'
+            : provisionalSentenceStress
+              ? 'Stored error examples and uncertain examples reduce the percentage.'
+              : 'Both error examples and uncertain examples reduce the percentage.'
+          : row.error_examples > 0 ? provisionalSentenceStress
+            ? 'Stored error examples were recorded in the selected readings.'
+            : 'Confirmed pronunciation errors were detected in the selected readings.'
+          : row.uncertain_examples > 0 ? 'Stored evidence contains uncertainty. The saved band has not been recalculated.'
+          : 'All selected examples were counted as correct. The saved all-readings band has not been recalculated.'
         return <tr key={item.item_id}>
-          <td><strong>{item.item_id}. {item.item_label}</strong></td><td>{item.band}</td>
+          <td><strong>{item.item_id}. {item.item_label}</strong>{provisionalSentenceStress ? <small>Provisional sentence-stress result</small> : null}</td><td>{item.band}</td>
           <td>{row?.details_available ? `${row.correct_examples} / ${row.expected_examples}` : 'Coverage unavailable'}</td>
           <td>{row?.details_available ? row.error_examples : '—'}</td><td>{row?.details_available ? row.uncertain_examples : '—'}</td>
           <td>{locations.length ? <ul>{locations.map(error => <li key={rowKey(error)}>
             <strong>{error.example || 'Word / span not localized'}</strong>
             <small>Reading {error.reading_index} · {resultFindingLocation(error)}</small>
           </li>)}</ul> : row?.details_available && row.error_examples === 0
-            ? 'No confirmed error examples in selected readings.' : 'No error locations loaded.'}
+            ? provisionalSentenceStress ? 'No stored error examples in selected readings.' : 'No confirmed error examples in selected readings.'
+            : 'No error locations loaded.'}
             {hasMoreFindings ? <small>Locations reflect loaded findings only. Load more findings to see remaining occurrences.</small> : null}</td>
-          <td>{!row ? 'No percentage-example summary is available for this check. Review the findings below.'
-            : !row.details_available ? 'Some selected readings lack detailed evidence; counts cannot explain the saved band reliably.'
-            : row.uncertainty_affects_band ? row.error_examples === 0
-              ? 'No confirmed pronunciation errors, but some examples could not be confirmed. This reduces the percentage.'
-              : 'Both error examples and uncertain examples reduce the percentage.'
-            : row.error_examples > 0 ? 'Confirmed pronunciation errors were detected in the selected readings.'
-            : row.uncertain_examples > 0 ? 'Stored evidence contains uncertainty. The saved band has not been recalculated.'
-            : 'All selected examples were counted as correct. The saved all-readings band has not been recalculated.'}</td>
+          <td>{explanation}{provisionalSentenceStress ? <small>{provisionalSentenceStressNote}</small> : null}</td>
         </tr>
       })}</tbody>
     </table></div>
@@ -175,7 +187,7 @@ export function ResultFindingsTable({ errors, uncertainties, readingIndex, loadi
   const rows = [...errors.map(row => ({ ...row, outcome: 'ERROR' as const })), ...uncertainties]
     .filter(row => readingIndex === undefined || row.reading_index === readingIndex)
     .sort((a, b) => a.reading_index - b.reading_index || a.item_id - b.item_id || a.target_occurrence_id.localeCompare(b.target_occurrence_id))
-  const label = (outcome: typeof rows[number]['outcome']) => outcome === 'ERROR' ? 'Confirmed error'
+  const label = (outcome: typeof rows[number]['outcome'], provisional: boolean) => outcome === 'ERROR' ? provisional ? 'Provisional error' : 'Confirmed error'
     : outcome === 'AMBIGUOUS' ? 'Uncertain · conflicting evidence'
     : outcome === 'UNASSESSABLE' ? 'Uncertain · insufficient evidence' : 'Not supported'
   return <div className="admin-table-scroll"><table className="admin-table admin-error-details-table">
@@ -185,7 +197,8 @@ export function ResultFindingsTable({ errors, uncertainties, readingIndex, loadi
       {rows.map(row => <tr key={rowKey(row)}>
         <td>Reading {row.reading_index}</td>
         <td><strong>{row.item_id}. {row.item_label}</strong>{!row.scored_in_report ? <small>Check not scored in saved report</small> : null}</td>
-        <td><span className={`admin-finding-outcome ${row.outcome === 'ERROR' ? 'admin-finding-error' : 'admin-finding-uncertain'}`}>{label(row.outcome)}</span></td>
+        <td><span className={`admin-finding-outcome ${row.outcome === 'ERROR' ? 'admin-finding-error' : 'admin-finding-uncertain'}`}>{label(row.outcome, row.assessment_basis === 'PROVISIONAL_SENTENCE_STRESS')}</span>
+          {row.assessment_basis === 'PROVISIONAL_SENTENCE_STRESS' ? <small>{provisionalSentenceStressExplanation}</small> : null}</td>
         <td><strong>{row.example || 'Word / span not localized'}</strong></td>
         <td>{resultFindingLocation(row)}{row.context && row.context !== row.example ? <small>Context: {row.context}</small> : null}
           <small className="admin-result-target-id">{row.target_occurrence_id}</small></td>

@@ -48,7 +48,14 @@ const unscoredReasonText: Record<string, string> = {
   TARGET_RECONCILIATION: 'The target could not be matched reliably to the passage.',
 }
 
-function ReportItemCard({ item }: { item: ReportItem }) {
+const provisionalSentenceStressNote = 'Provisional sentence-stress result. This detector has not been validated against expert judgments.'
+
+function hasProvisionalSentenceStressBasis(item: ReportItem): boolean {
+  return item.assessment_basis === 'PROVISIONAL_SENTENCE_STRESS'
+}
+
+export function ReportItemCard({ item }: { item: ReportItem }) {
+  const isProvisionalSentenceStress = hasProvisionalSentenceStressBasis(item)
   return (
     <article className="report-item-card">
       <div className="report-item-heading">
@@ -65,10 +72,14 @@ function ReportItemCard({ item }: { item: ReportItem }) {
           ))}
         </div>
       ) : (
-        <p className="item-detail">This item was assessed in your reading.</p>
+        <p className="item-detail">{isProvisionalSentenceStress ? provisionalSentenceStressNote : 'This item was assessed in your reading.'}</p>
       )}
     </article>
   )
+}
+
+export function ReportStrengthItem({ item }: { item: ReportItem }) {
+  return <div className="strength-row"><span className="strength-check">✓</span><span><strong>Item {item.item_id} · {item.band}</strong><small>{hasProvisionalSentenceStressBasis(item) ? provisionalSentenceStressNote : 'This item received a scored result.'}</small></span></div>
 }
 
 export function ReportPage() {
@@ -264,7 +275,7 @@ export function ReportPage() {
                   <h2>What you did well</h2>
                   <div className="strength-card">
                     {strengths.length ? strengths.slice(0, 4).map(item => (
-                      <div className="strength-row" key={item.item_id}><span className="strength-check">✓</span><span><strong>Item {item.item_id} · {item.band}</strong><small>This item received a scored result.</small></span></div>
+                      <ReportStrengthItem item={item} key={item.item_id} />
                     )) : <p className="empty-note">No items were marked Perfect or Good in this report.</p>}
                   </div>
                 </section>

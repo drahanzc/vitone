@@ -54,11 +54,11 @@ export function RerunConfirmation({ busy, rebuildWordAlignment, onRebuildChange,
 }) {
   return <div className="admin-rerun-confirm">
     <p>Recalculate scoring using the saved Azure results? This replaces the report without calling Azure again.</p>
-    <label className="admin-rerun-option">
+    {/* <label className="admin-rerun-option">
       <input type="checkbox" checked={rebuildWordAlignment} disabled={busy} onChange={event => onRebuildChange(event.currentTarget.checked)} />
       Rebuild word alignment
     </label>
-    <p className="admin-rerun-warning">If selected, rebuilds alignment from saved responses and discards saved pitch/acoustic evidence. Audio-dependent items may become unassessable. No audio is processed.</p>
+    <p className="admin-rerun-warning">If selected, rebuilds word alignment and keeps valid saved pitch from the same reading. Missing pitch cannot be restored by rerunning. Synthetic or incompatible evidence cannot be reused. No audio is processed.</p> */}
     <div className="admin-rerun-buttons">
       <button className="admin-rerun-confirm-button" type="button" disabled={busy} onClick={onConfirm}>{busy ? 'Queueing…' : 'Confirm rerun'}</button>
       <button className="admin-rerun-cancel" type="button" disabled={busy} onClick={onCancel}>Cancel</button>

@@ -107,7 +107,7 @@ describe('result evidence explanations', () => {
   test('below-Perfect checks list loaded error words and exact positions, never uncertain words as errors', () => {
     const html = renderToStaticMarkup(<ResultEvidenceSummary items={page().non_perfect_items} summaries={page().item_summaries}
       errors={[{ ...detail(1), example: 'honestly' }, { ...detail(2), example: 'energy' }]} readingIndex={1} hasMoreFindings />)
-    expect(html).toContain('Confirmed error words / positions')
+    expect(html).toContain('Error words / positions')
     expect(html).toContain('honestly')
     expect(html).toContain('Reading 1 · Reference sentence 1, word 4 (passage word 4)')
     expect(html).not.toContain('energy')

@@ -16,6 +16,8 @@ export type AssessmentListItem = components['schemas']['AssessmentListItem']
 export type AssessmentPage = components['schemas']['AssessmentPage']
 export type CreateLinkRequest = components['schemas']['CreateLinkRequest']
 export type AssessmentResultDetails = components['schemas']['AssessmentResultDetails']
+export type ReportShareLink = components['schemas']['ReportShareLink']
+export type ReportShareState = components['schemas']['ReportShareState']
 
 export class CenterApiError extends Error {
   readonly status: number
@@ -186,6 +188,46 @@ export async function getCenterReportPdf(
     headers: { Accept: 'application/pdf' },
   })
   return response.blob()
+}
+
+export function getAssessmentReportShare(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+  signal?: AbortSignal,
+): Promise<ReportShareState> {
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/report-share`, session, onSessionChange, {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+    signal,
+  })
+}
+
+export function createAssessmentReportShare(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+  signal?: AbortSignal,
+): Promise<ReportShareLink> {
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/report-share`, session, onSessionChange, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+    signal,
+  })
+}
+
+export function revokeAssessmentReportShare(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/report-share`, session, onSessionChange, {
+    method: 'DELETE',
+    cache: 'no-store',
+    signal,
+  })
 }
 
 export function getAssessmentResultDetails(

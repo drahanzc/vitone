@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { CenterApiError, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, rerunAssessment, retryAssessment, type CenterSession } from '../src/admin/admin-api'
+import { CenterApiError, createAssessmentReportShare, getAssessmentReportShare, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, rerunAssessment, retryAssessment, revokeAssessmentReportShare, type CenterSession } from '../src/admin/admin-api'
 
 const session: CenterSession = { accessToken: 'access', refreshToken: 'refresh', expiresAt: Date.now() + 3600_000 }
 const originalFetch = globalThis.fetch
@@ -169,5 +169,58 @@ describe('center assessment API', () => {
   test('surfaces PDF endpoint errors', async () => {
     globalThis.fetch = (async () => Response.json({ error: { message: 'Report is not ready.' } }, { status: 409 })) as typeof fetch
     await expect(getCenterReportPdf('id', session, () => {})).rejects.toBeInstanceOf(CenterApiError)
+  })
+
+  test('loads current owner share state without using a cached response', async () => {
+    const controller = new AbortController()
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toContain('/assessments/student%2Fid/report-share')
+      expect(init?.method).toBeUndefined()
+      expect(init?.cache).toBe('no-store')
+      expect(init?.signal).toBe(controller.signal)
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+      return Response.json({ share: null })
+    }) as typeof fetch
+    expect(await getAssessmentReportShare('student/id', session, () => {}, controller.signal)).toEqual({ share: null })
+  })
+
+  test('creates and revokes an owner share with explicit authenticated mutations', async () => {
+    const calls: Array<{ method: string | undefined; body: BodyInit | null | undefined }> = []
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toContain('/assessments/student%2Fid/report-share')
+      expect(init?.cache).toBe('no-store')
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+      calls.push({ method: init?.method, body: init?.body })
+      if (init?.method === 'POST') {
+        return Response.json({
+          share_url: 'https://example.test/shared-reports/token',
+          created_at: '2026-11-17T00:00:00Z',
+          report_generated_at: '2026-11-16T00:00:00Z',
+        }, { status: 201 })
+      }
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+    const created = await createAssessmentReportShare('student/id', session, () => {})
+    expect(created.share_url).toBe('https://example.test/shared-reports/token')
+    await revokeAssessmentReportShare('student/id', session, () => {})
+    expect(calls).toEqual([{ method: 'POST', body: undefined }, { method: 'DELETE', body: undefined }])
+  })
+
+  test('refreshes an expired response before retrying the share-state request', async () => {
+    const paths: string[] = []
+    globalThis.fetch = (async (input, init) => {
+      paths.push(String(input))
+      if (String(input).endsWith('/auth/refresh')) {
+        return Response.json({ access_token: 'share-access', refresh_token: 'share-refresh', expires_in: 3600 })
+      }
+      const authorization = new Headers(init?.headers).get('Authorization')
+      if (authorization === 'Bearer access') return new Response(null, { status: 401 })
+      expect(authorization).toBe('Bearer share-access')
+      return Response.json({ share: null })
+    }) as typeof fetch
+    let refreshed: CenterSession | null = null
+    expect(await getAssessmentReportShare('id', session, next => { refreshed = next })).toEqual({ share: null })
+    expect(refreshed?.accessToken).toBe('share-access')
+    expect(paths).toHaveLength(3)
   })
 })

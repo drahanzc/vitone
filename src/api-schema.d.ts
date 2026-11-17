@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assessments/{id}/report-share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_report_share"];
+        put?: never;
+        post: operations["create_report_share"];
+        delete: operations["revoke_report_share"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -110,6 +126,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create_linked_assessment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shared-reports/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_shared_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shared-reports/{token}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_shared_report_pdf"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1026,6 +1074,20 @@ export interface components {
             learner_reference: string;
             report: components["schemas"]["AssessmentReport"];
         };
+        /** @description Share link details visible to an authenticated center owner. */
+        ReportShareLink: {
+            created_at: string;
+            report_generated_at: string;
+            /**
+             * @description Public URL containing the opaque share capability.
+             * @example https://example.test/shared-reports/0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd0123abcd
+             */
+            share_url: string;
+        };
+        /** @description Current explicit sharing state for an assessment. */
+        ReportShareState: {
+            share?: components["schemas"]["ReportShareLink"] | null;
+        };
         /** @description A target-level reason included when report coverage is incomplete. */
         ReportTargetBlocker: {
             outcome: string;
@@ -1135,6 +1197,22 @@ export interface components {
             annotation_text: string;
             expected_word_id?: string | null;
             reason: string;
+        };
+        /** @description Safe report projection served without authentication to anyone with the link. */
+        SharedReport: {
+            areas?: components["schemas"]["ReportArea"][] | null;
+            examples: components["schemas"]["BTreeMap"];
+            generated_at: string;
+            /** @description Item labels copied from the checked-in rubric CSV at share creation. */
+            item_labels: {
+                [key: string]: string;
+            };
+            items: components["schemas"]["ReportItem"][];
+            learner_reference: string;
+            passage_title: string;
+            /** Format: int32 */
+            required_readings: number;
+            shared_at: string;
         };
         /** @enum {string} */
         UnscoredReason: "UNSUPPORTED" | "AMBIGUOUS" | "UNASSESSABLE" | "INCOMPLETE" | "NO_TARGETS" | "NOT_APPLICABLE" | "TARGET_RECONCILIATION";
@@ -1464,6 +1542,133 @@ export interface operations {
             };
         };
     };
+    get_report_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current owner-managed share link, or null when inactive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportShareState"];
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    create_report_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created a fresh public link and immutable report snapshot */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportShareLink"];
+                };
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment is not completed with a valid report */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    revoke_report_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share link revoked; already revoked links are accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Center authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Assessment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;
@@ -1637,6 +1842,79 @@ export interface operations {
             };
             /** @description Consent or audio is invalid */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_shared_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 64-character lowercase hexadecimal share token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read-only report snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedReport"];
+                };
+            };
+            /** @description Shared report not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_shared_report_pdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 64-character lowercase hexadecimal share token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF download of the immutable report snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Shared report not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description PDF renderer is unavailable or busy; retry later */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

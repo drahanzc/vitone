@@ -5,6 +5,7 @@ export type AssessmentSubmissionResponse = components['schemas']['CreatedAssessm
 export type AssessmentStatus = components['schemas']['AssessmentStatusResponse']
 export type StudentReport = components['schemas']['AssessmentReport']
 export type ReportItem = components['schemas']['ReportItem']
+export type SharedReport = components['schemas']['SharedReport']
 
 export type SavedReportSession = {
   assessmentId: string
@@ -371,6 +372,56 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return await response.json() as T
 }
 
+async function publicRequest<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(apiUrl(path), {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    cache: 'no-store',
+    signal,
+  })
+  if (!response.ok) {
+    let body: { error?: { code?: string; message?: string } } | undefined
+    try {
+      body = await response.json() as { error?: { code?: string; message?: string } }
+    } catch {
+      // Keep public link failures useful even when a proxy returns non-JSON text.
+    }
+    throw new ApiError(
+      body?.error?.message || 'The request could not be completed. Please try again.',
+      response.status,
+      body?.error?.code,
+    )
+  }
+  return await response.json() as T
+}
+
+async function publicPdfRequest(path: string, signal?: AbortSignal): Promise<Blob> {
+  const response = await fetch(apiUrl(path), {
+    method: 'GET',
+    headers: { Accept: 'application/pdf' },
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    cache: 'no-store',
+    signal,
+  })
+  if (!response.ok) {
+    let body: { error?: { code?: string; message?: string } } | undefined
+    try {
+      body = await response.json() as { error?: { code?: string; message?: string } }
+    } catch {
+      // Keep public PDF failures useful even when a proxy returns non-JSON text.
+    }
+    throw new ApiError(
+      body?.error?.message || 'The PDF could not be downloaded. Please try again.',
+      response.status,
+      body?.error?.code,
+    )
+  }
+  return response.blob()
+}
+
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
 
 export function getPublicLink(token: string): Promise<PublicLink> {
@@ -430,6 +481,14 @@ export function getStudentReport(token: string): Promise<StudentReport> {
 
 export function studentReportPdfUrl(token: string): string {
   return apiUrl(`/public/reports/${encodeURIComponent(token)}/pdf`)
+}
+
+export function getPublicSharedReport(token: string, signal?: AbortSignal): Promise<SharedReport> {
+  return publicRequest(`/public/shared-reports/${encodeURIComponent(token)}`, signal)
+}
+
+export function getPublicSharedReportPdf(token: string, signal?: AbortSignal): Promise<Blob> {
+  return publicPdfRequest(`/public/shared-reports/${encodeURIComponent(token)}/pdf`, signal)
 }
 
 export function saveReportSession(session: SavedReportSession): void {

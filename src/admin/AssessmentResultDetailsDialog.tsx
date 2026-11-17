@@ -16,7 +16,6 @@ type ErrorDetail = AssessmentResultDetails['errors'][number]
 type UncertaintyDetail = AssessmentResultDetails['uncertainties'][number]
 type Summary = AssessmentResultDetails['item_summaries'][number]
 type NonPerfectItem = AssessmentResultDetails['non_perfect_items'][number]
-const provisionalSentenceStressExplanation = 'Provisional sentence-stress detector; not validated against expert judgments.'
 
 export function AssessmentResultDetailsDialog({ assessmentId, learnerReference, session, updateSession, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)

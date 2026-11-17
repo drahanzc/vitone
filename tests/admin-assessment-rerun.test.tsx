@@ -35,9 +35,12 @@ describe('admin assessment Result column', () => {
     expect(result).not.toContain('Download PDF report')
   })
 
-  test('does not offer reruns while an assessment is queued or processing', () => {
+  test('keeps share management available without offering reruns while work is pending', () => {
     for (const status of ['CREATED', 'UPLOADING', 'UPLOADED', 'PROCESSING', 'UNKNOWN']) {
-      expect(renderResult(status)).toBe('—')
+      const result = renderResult(status)
+      expect(result).toContain('Share report')
+      expect(result).not.toContain('Rerun assessment')
+      expect(result).not.toContain('Download PDF report')
     }
   })
 })

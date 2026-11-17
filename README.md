@@ -33,6 +33,25 @@ The table shows check, target example/location, expected/observed details when r
 
 Completed and failed submissions also have **Rerun assessment** in the **Result** column. Confirming queues only engine scoring from saved Azure results, without calling Azure or processing audio again. The previous report is replaced and the row updates while rescoring runs. Every reading must have a successful saved engine result; otherwise the server rejects the rerun. Leave **Rebuild word alignment** unchecked to preserve saved alignment and acoustic evidence.
 
+## Shareable report copies
+
+**Share report** opens the owner-controlled sharing dialog. Creating a link is
+explicit and requires a completed report. The dialog supports copying/reopening
+an existing link, downloading the shared PDF, replacing the copy with the latest
+completed report, and revoking access. Existing links can still be managed while
+the assessment is rerunning or failed.
+
+Recipients use `/shared-reports/:token` without signing in. The link opens the
+saved PDF in a full-page browser viewer, like the admin **View PDF** action, with
+the browser's download and print controls. It loads the PDF directly rather than
+rendering a separate report dashboard. Later reruns do not change that copy. Replacing
+the copy invalidates the previous URL; revocation/deletion makes it unavailable.
+Submission tokens and the disabled `/r/:token` student flow remain separate.
+
+The backend's `PUBLIC_BASE_URL` must be the externally accessible frontend origin
+for links shared with an expert. Configure `VITE_API_BASE_URL` for a separately
+hosted backend. The public page does not send center credentials or load audio.
+
 ## Assessment monitoring
 
 On `/admin/assessments`, the **Monitor / Troubleshoot** link beneath each student

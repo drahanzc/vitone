@@ -45,7 +45,7 @@ export function AssessmentRerunButton({ item, session, updateSession, onQueued }
   </div>
 }
 
-export function RerunConfirmation({ busy, rebuildWordAlignment, onRebuildChange, onConfirm, onCancel }: {
+export function RerunConfirmation({ busy, onConfirm, onCancel }: {
   busy: boolean
   rebuildWordAlignment: boolean
   onRebuildChange: (value: boolean) => void

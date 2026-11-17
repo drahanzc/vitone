@@ -3,6 +3,7 @@ import { getCenterReportPdf, type AssessmentListItem, type CenterSession } from 
 import { AssessmentResultDetailsDialog } from './AssessmentResultDetailsDialog'
 import { openPdfPreview, type PdfPreview } from './pdf-preview'
 import { Icon } from './AdminPrimitives'
+import { ReportSharingButton } from './ReportSharing'
 
 export function ReportDownload({ item, session, updateSession }: {
   item: AssessmentListItem
@@ -61,6 +62,7 @@ export function ReportDownload({ item, session, updateSession }: {
       <button className="admin-report-download" type="button" onClick={() => setDetailsOpen(true)} aria-label={`View result details for ${item.learner_reference}`}>
         <Icon name="eye" /><span>Details</span>
       </button>
+      <ReportSharingButton item={item} session={session} updateSession={updateSession} />
       {error ? <span className="admin-report-error" role="alert">{error}</span> : null}
       {detailsOpen ? <AssessmentResultDetailsDialog assessmentId={item.id} learnerReference={item.learner_reference}
         session={session} updateSession={updateSession} onClose={() => setDetailsOpen(false)} /> : null}

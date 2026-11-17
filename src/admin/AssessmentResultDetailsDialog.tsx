@@ -187,7 +187,12 @@ export function ResultFindingsTable({ errors, uncertainties, readingIndex, loadi
   const rows = [...errors.map(row => ({ ...row, outcome: 'ERROR' as const })), ...uncertainties]
     .filter(row => readingIndex === undefined || row.reading_index === readingIndex)
     .sort((a, b) => a.reading_index - b.reading_index || a.item_id - b.item_id || a.target_occurrence_id.localeCompare(b.target_occurrence_id))
-  const label = (outcome: typeof rows[number]['outcome'], provisional: boolean) => outcome === 'ERROR' ? provisional ? 'Provisional error' : 'Confirmed error'
+  const unvalidatedPolicyReasons = new Set([
+    'linking_break_policy_uncalibrated',
+    'unexpected_linking_break_candidate_uncalibrated',
+  ])
+  const label = (outcome: typeof rows[number]['outcome'], reasonCode?: string | null) => outcome === 'ERROR' ? 'Confirmed error'
+    : outcome === 'AMBIGUOUS' && reasonCode && unvalidatedPolicyReasons.has(reasonCode) ? 'Uncertain · detection policy not validated'
     : outcome === 'AMBIGUOUS' ? 'Uncertain · conflicting evidence'
     : outcome === 'UNASSESSABLE' ? 'Uncertain · insufficient evidence' : 'Not supported'
   return <div className="admin-table-scroll"><table className="admin-table admin-error-details-table">
@@ -197,8 +202,7 @@ export function ResultFindingsTable({ errors, uncertainties, readingIndex, loadi
       {rows.map(row => <tr key={rowKey(row)}>
         <td>Reading {row.reading_index}</td>
         <td><strong>{row.item_id}. {row.item_label}</strong>{!row.scored_in_report ? <small>Check not scored in saved report</small> : null}</td>
-        <td><span className={`admin-finding-outcome ${row.outcome === 'ERROR' ? 'admin-finding-error' : 'admin-finding-uncertain'}`}>{label(row.outcome, row.assessment_basis === 'PROVISIONAL_SENTENCE_STRESS')}</span>
-          {row.assessment_basis === 'PROVISIONAL_SENTENCE_STRESS' ? <small>{provisionalSentenceStressExplanation}</small> : null}</td>
+        <td><span className={`admin-finding-outcome ${row.outcome === 'ERROR' ? 'admin-finding-error' : 'admin-finding-uncertain'}`}>{label(row.outcome, row.reason_code)}</span></td>
         <td><strong>{row.example || 'Word / span not localized'}</strong></td>
         <td>{resultFindingLocation(row)}{row.context && row.context !== row.example ? <small>Context: {row.context}</small> : null}
           <small className="admin-result-target-id">{row.target_occurrence_id}</small></td>

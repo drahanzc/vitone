@@ -139,6 +139,26 @@ describe('result evidence explanations', () => {
     expect(html).toContain('Uncertain · conflicting evidence')
   })
 
+  test('ambiguity labels distinguish unvalidated detection policy from conflicting evidence', () => {
+    const policyRows = [
+      { ...detail(1, 'example:policy:1'), outcome: 'AMBIGUOUS' as const,
+        reason_code: 'linking_break_policy_uncalibrated', reason: 'Detection policy has not been validated.' },
+      { ...detail(1, 'example:policy:2'), outcome: 'AMBIGUOUS' as const,
+        reason_code: 'unexpected_linking_break_candidate_uncalibrated', reason: '<script>unsafe()</script>' },
+    ]
+    const policyHtml = renderToStaticMarkup(<ResultFindingsTable errors={[]} uncertainties={policyRows} />)
+    expect(policyHtml.match(/Uncertain · detection policy not validated/g)).toHaveLength(2)
+    expect(policyHtml).toContain('Detection policy has not been validated.')
+    expect(policyHtml).toContain('&lt;script&gt;unsafe()&lt;/script&gt;')
+    expect(policyHtml).not.toContain('<script>')
+
+    const conflictHtml = renderToStaticMarkup(<ResultFindingsTable errors={[]} uncertainties={[{
+      ...detail(1), outcome: 'AMBIGUOUS', reason_code: 'phrase_final_prominence_confounded',
+    }]} />)
+    expect(conflictHtml).toContain('Uncertain · conflicting evidence')
+    expect(conflictHtml).not.toContain('Uncertain · detection policy not validated')
+  })
+
   test('uncertain and unsupported findings are not presented as confirmed errors', () => {
     const rows = [page().uncertainties[0]!, { ...detail(2, 'example:missing:1'), outcome: 'UNASSESSABLE' as const },
       { ...detail(2, 'example:unsupported:1'), outcome: 'UNSUPPORTED' as const }]

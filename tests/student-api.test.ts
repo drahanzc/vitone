@@ -3,6 +3,7 @@ import {
   ASSESSMENT_AUDIO_SAMPLE_RATE,
   AudioCompositionError,
   audioFilename,
+  audioUploadContentType,
   combineReadingsToWav,
   concatenateMonoReadings,
   encodeMonoPcm16Wav,
@@ -111,6 +112,13 @@ describe('reading audio composition helpers', () => {
     expect(view.getInt16(44, true)).toBe(-32_768)
     expect(view.getInt16(46, true)).toBe(16_384)
     expect(view.getInt16(48, true)).toBe(32_767)
+  })
+
+  test('uses an audio MIME type for MP4 uploads regardless of the browser container type', () => {
+    expect(audioUploadContentType({ name: 'Success 9 CLEANED _ v.2026.11.17 - 06.28.mp4' })).toBe('audio/mp4')
+    expect(audioUploadContentType({ name: 'recording.MP4' })).toBe('audio/mp4')
+    expect(audioUploadContentType({ name: 'recording.mov' })).toBe('video/quicktime')
+    expect(audioUploadContentType({ name: 'recording.txt' })).toBeUndefined()
   })
 
   test('uses the WAV filename for the normalized submission blob', () => {

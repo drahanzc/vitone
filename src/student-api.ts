@@ -454,6 +454,23 @@ export function submitPublicAssessment(
   })
 }
 
+/**
+ * Maps the selected filename to a MIME type accepted by the recording API.
+ * Some browsers label audio-only MP4 containers as `video/mp4`, so the `.mp4`
+ * extension is sent as the supported `audio/mp4` type instead.
+ */
+export function audioUploadContentType(file: Pick<File, 'name'>): string | undefined {
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  const types: Record<string, string> = {
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    m4a: 'audio/x-m4a',
+    mp4: 'audio/mp4',
+    mov: 'video/quicktime',
+  }
+  return extension ? types[extension] : undefined
+}
+
 export function audioFilename(audio: Blob): string {
   const mediaType = audio.type.split(';', 1)[0]?.trim().toLowerCase()
   if (mediaType === 'audio/mpeg') return 'recording.mp3'

@@ -31,9 +31,9 @@ export function ReportShareSummary({ share, learnerReference, canCreate }: {
   canCreate: boolean
 }) {
   return share ? <div className="report-share-summary-copy">
-    <p>Anyone with this link can view {learnerReference}’s name and results, and download the PDF. This saved copy will not change if the assessment is rerun.</p>
-    <p className="report-share-date">Saved {formatShareDate(share.created_at)} · Report generated {formatShareDate(share.report_generated_at)}</p>
-  </div> : <p>Create a read-only link for this completed report. Anyone with the link can view the learner’s name and results, and download the PDF. The saved copy will not change if the assessment is rerun.{canCreate ? '' : ' A completed report is required before a share link can be created.'}</p>
+    <p>Anyone with this link can view {learnerReference}’s name and results, and download the PDF. The report content updates after each successful assessment rerun; the link stays the same.</p>
+    <p className="report-share-date">Link created {formatShareDate(share.created_at)} · Report generated {formatShareDate(share.report_generated_at)}</p>
+  </div> : <p>Create a read-only link for this completed report. Anyone with the link can view the learner’s name and results, and download the PDF. The report content updates after each successful assessment rerun.{canCreate ? '' : ' A completed report is required before a share link can be created.'}</p>
 }
 
 function ReportSharingDialog({ item, session, updateSession, onClose }: {

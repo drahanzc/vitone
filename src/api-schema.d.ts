@@ -1593,7 +1593,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Created a fresh public link and immutable report snapshot */
+            /** @description Created or replaced a public link and report snapshot */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -1895,7 +1895,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description PDF download of the immutable report snapshot */
+            /** @description PDF download of the saved report snapshot */
             200: {
                 headers: {
                     [name: string]: unknown;

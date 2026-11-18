@@ -21,9 +21,9 @@ describe('shared report presentation', () => {
       report_generated_at: '2026-11-16T00:00:00Z',
     }} learnerReference="Morgan Lee" canCreate />)
     expect(current).toContain('Morgan Lee’s name and results')
-    expect(current).toContain('Saved')
+    expect(current).toContain('Link created')
     expect(current).toContain('Report generated')
-    expect(current).toContain('will not change if the assessment is rerun')
+    expect(current).toContain('updates after each successful assessment rerun')
 
     const empty = renderToStaticMarkup(<ReportShareSummary share={null} learnerReference="Morgan Lee" canCreate={false} />)
     expect(empty).toContain('Create a read-only link')

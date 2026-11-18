@@ -97,7 +97,7 @@ describe('provisional sentence-stress labels', () => {
 
     const uncertain = { ...errorDetail('PROVISIONAL_SENTENCE_STRESS'), outcome: 'AMBIGUOUS' as const }
     const uncertainHtml = renderToStaticMarkup(<ResultFindingsTable errors={[]} uncertainties={[uncertain]} />)
-    expect(uncertainHtml).toContain('Uncertain · conflicting evidence')
+    expect(uncertainHtml).toContain('Uncertain · not confirmed')
     expect(uncertainHtml).toContain('Provisional sentence-stress detector; not validated against expert judgments.')
     expect(uncertainHtml).not.toContain('Provisional error')
   })

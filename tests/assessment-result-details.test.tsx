@@ -136,7 +136,7 @@ describe('result evidence explanations', () => {
     expect(html).toContain('Reference sentence 1, word 4 (passage word 4)')
     expect(html).toContain('Context: &lt;script&gt;context()&lt;/script&gt;')
     expect(html).not.toContain('<script>')
-    expect(html).toContain('Uncertain · conflicting evidence')
+    expect(html).toContain('Uncertain · not confirmed')
   })
 
   test('ambiguity labels distinguish unvalidated detection policy from conflicting evidence', () => {
@@ -153,7 +153,7 @@ describe('result evidence explanations', () => {
     expect(policyHtml).not.toContain('<script>')
 
     const conflictHtml = renderToStaticMarkup(<ResultFindingsTable errors={[]} uncertainties={[{
-      ...detail(1), outcome: 'AMBIGUOUS', reason_code: 'phrase_final_prominence_confounded',
+      ...detail(1), outcome: 'AMBIGUOUS', reason_code: 'pitch_and_duration_disagree',
     }]} />)
     expect(conflictHtml).toContain('Uncertain · conflicting evidence')
     expect(conflictHtml).not.toContain('Uncertain · detection policy not validated')
@@ -163,13 +163,26 @@ describe('result evidence explanations', () => {
     const rows = [page().uncertainties[0]!, { ...detail(2, 'example:missing:1'), outcome: 'UNASSESSABLE' as const },
       { ...detail(2, 'example:unsupported:1'), outcome: 'UNSUPPORTED' as const }]
     const html = renderToStaticMarkup(<ResultFindingsTable errors={[]} uncertainties={rows} />)
-    expect(html).toContain('Uncertain · conflicting evidence')
+    expect(html).toContain('Uncertain · not confirmed')
     expect(html).toContain('Uncertain · insufficient evidence')
     expect(html).toContain('Not supported')
     expect(html).toContain('Julia')
     expect(html).toContain('Syllable 1')
     expect(html).not.toContain('Confirmed error</span>')
     expect(html).not.toContain('admin-finding-error')
+  })
+
+  test('positive-reference and confidence misses do not imply conflicting measurements', () => {
+    for (const reasonCode of ['two_word_verb_pattern_outside_reference', 'sentence_stress_evidence_ambiguous', 'phrase_final_prominence_confounded']) {
+      const html = renderToStaticMarkup(<ResultFindingsTable errors={[]} uncertainties={[{
+        ...detail(1), outcome: 'AMBIGUOUS', reason_code: reasonCode,
+        reason: 'The comparison was not confirmed by the available reference evidence.',
+      }]} />)
+      expect(html).toContain('Uncertain · not confirmed')
+      expect(html).toContain('The comparison was not confirmed by the available reference evidence.')
+      expect(html).not.toContain('conflicting evidence')
+      expect(html).not.toContain('Confirmed error')
+    }
   })
 
   test('confirmed errors, missing observations and hostile text retain safe labels', () => {

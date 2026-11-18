@@ -190,9 +190,15 @@ export function ResultFindingsTable({ errors, uncertainties, readingIndex, loadi
     'linking_break_policy_uncalibrated',
     'unexpected_linking_break_candidate_uncalibrated',
   ])
-  const label = (outcome: typeof rows[number]['outcome'], reasonCode?: string | null) => outcome === 'ERROR' ? 'Confirmed error'
+  const conflictingEvidenceReasons = new Set([
+    'pitch_and_duration_disagree',
+    'break_feedback_conflicting',
+  ])
+  const label = (outcome: typeof rows[number]['outcome'], reasonCode?: string | null, basis?: ErrorDetail['assessment_basis']) => outcome === 'ERROR'
+    ? basis === 'PROVISIONAL_SENTENCE_STRESS' ? 'Provisional error' : 'Confirmed error'
     : outcome === 'AMBIGUOUS' && reasonCode && unvalidatedPolicyReasons.has(reasonCode) ? 'Uncertain · detection policy not validated'
-    : outcome === 'AMBIGUOUS' ? 'Uncertain · conflicting evidence'
+    : outcome === 'AMBIGUOUS' && reasonCode && conflictingEvidenceReasons.has(reasonCode) ? 'Uncertain · conflicting evidence'
+    : outcome === 'AMBIGUOUS' ? 'Uncertain · not confirmed'
     : outcome === 'UNASSESSABLE' ? 'Uncertain · insufficient evidence' : 'Not supported'
   return <div className="admin-table-scroll"><table className="admin-table admin-error-details-table">
     <caption className="visually-hidden">Persisted errors and uncertainty by reading</caption>
@@ -200,8 +206,9 @@ export function ResultFindingsTable({ errors, uncertainties, readingIndex, loadi
     <tbody>
       {rows.map(row => <tr key={rowKey(row)}>
         <td>Reading {row.reading_index}</td>
-        <td><strong>{row.item_id}. {row.item_label}</strong>{!row.scored_in_report ? <small>Check not scored in saved report</small> : null}</td>
-        <td><span className={`admin-finding-outcome ${row.outcome === 'ERROR' ? 'admin-finding-error' : 'admin-finding-uncertain'}`}>{label(row.outcome, row.reason_code)}</span></td>
+        <td><strong>{row.item_id}. {row.item_label}</strong>{!row.scored_in_report ? <small>Check not scored in saved report</small> : null}
+          {row.assessment_basis === 'PROVISIONAL_SENTENCE_STRESS' ? <small>Provisional sentence-stress detector; not validated against expert judgments.</small> : null}</td>
+        <td><span className={`admin-finding-outcome ${row.outcome === 'ERROR' ? 'admin-finding-error' : 'admin-finding-uncertain'}`}>{label(row.outcome, row.reason_code, row.assessment_basis)}</span></td>
         <td><strong>{row.example || 'Word / span not localized'}</strong></td>
         <td>{resultFindingLocation(row)}{row.context && row.context !== row.example ? <small>Context: {row.context}</small> : null}
           <small className="admin-result-target-id">{row.target_occurrence_id}</small></td>

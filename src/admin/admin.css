@@ -360,12 +360,42 @@
 .admin-results-table .admin-status.is-good { color: #4ad26c; }
 .admin-results-table th:nth-child(5), .admin-results-table td:nth-child(5),
 .admin-results-table th:nth-child(6), .admin-results-table td:nth-child(6) { width: 1%; }
-.admin-failure-reason { display: block; width: 200px; max-width: 40vw; color: #a93b3b; font-size: 12px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
-.admin-result-actions, .admin-failed-result { display: grid; justify-items: start; gap: 6px; }
-.admin-failed-result .admin-text-link { font-size: 12px; white-space: nowrap; }
+.admin-result-actions { display: grid; justify-items: start; gap: 6px; }
+.admin-result-actions-four { grid-template-columns: repeat(2, max-content); align-items: center; }
 .admin-monitor-page { display: grid; align-content: start; gap: 20px; }
 .admin-monitor-summary, .admin-monitor-steps, .admin-monitor-readings { padding: 24px; }
 .admin-monitor-summary, .admin-monitor-steps-heading, .admin-checkpoint-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.admin-monitor-summary { flex-wrap: wrap; }
+.admin-monitor-overview-controls { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 18px; }
+.admin-monitor-link-select { display: grid; min-width: min(360px, 100%); gap: 7px; }
+.admin-monitor-link-select label { color: #424b5a; font-size: 12px; font-weight: 600; }
+.admin-monitor-link-select select, .admin-monitor-search input { box-sizing: border-box; min-height: 40px; padding: 0 12px; border: 1px solid #dbe1eb; border-radius: 9px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; }
+.admin-monitor-search { display: flex; min-width: min(280px, 100%); align-items: center; gap: 8px; }
+.admin-monitor-search svg { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.admin-monitor-search input { width: 100%; }
+.admin-monitor-cards { margin: 0; }
+.admin-monitor-queue { min-width: 0; padding: 20px; }
+.admin-monitor-queue .admin-results-heading h2 { margin: 0 0 5px; color: var(--ink); font-size: 18px; }
+.admin-monitor-queue .admin-results-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+.admin-monitor-table { min-width: 620px; }
+.admin-monitor-table td { height: 58px; }
+.admin-monitor-table td:first-child { white-space: normal; }
+.admin-monitor-page-nav { margin-bottom: -8px; }
+.admin-monitor-summary-copy { min-width: 0; }
+.admin-monitor-summary-actions { display: flex; flex: none; align-items: center; flex-wrap: wrap; gap: 12px; }
+.admin-monitor-summary-actions .admin-status { flex: none; }
+.admin-monitor-report-unavailable { padding: 24px; }
+.admin-monitor-report-unavailable h2 { margin: 0 0 8px; font-size: 18px; }
+.admin-monitor-report-unavailable p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.admin-result-details-panel { min-width: 0; padding: 24px; }
+.admin-expert-comparison { display: grid; min-width: 0; gap: 16px; padding: 24px; }
+.admin-expert-comparison-help, .admin-expert-comparison-caveat { max-width: 1100px; margin: 0; color: #606a79; font-size: 13px; line-height: 1.6; }
+.admin-expert-comparison-upload { display: grid; justify-items: start; gap: 8px; color: #424b5a; font-size: 13px; font-weight: 600; }
+.admin-expert-comparison-upload input { max-width: 100%; font: inherit; font-weight: 400; }
+.admin-expert-comparison-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px; border-radius: 10px; background: #f5f7fb; color: #424b5a; font-size: 12px; }
+.admin-expert-comparison-table { min-width: 1250px; }
+.admin-expert-comparison-table th, .admin-expert-comparison-table td { vertical-align: top; white-space: normal; }
+.admin-expert-comparison-table tbody th { color: var(--ink); text-align: left; }
 .admin-monitor-summary h2 { margin: 0; color: var(--ink); font-size: 18px; }
 .admin-monitor-summary p, .admin-monitor-help, .admin-monitor-empty { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .admin-monitor-summary .admin-monitor-id { overflow-wrap: anywhere; font-size: 12px; }
@@ -399,20 +429,13 @@
 .admin-rerun-action > .admin-form-error { max-width: 220px; margin: 8px 0 0; white-space: normal; }
 .admin-report-cell { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; width: max-content; max-width: 100%; white-space: normal; }
 .admin-report-cell .admin-report-error { flex-basis: 100%; white-space: normal; }
-.admin-result-details-dialog { position: fixed; inset: 0; box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: clamp(12px, 2vw, 24px); overflow: hidden; border: 0; border-radius: 0; background: var(--surface); color: var(--ink); }
-.admin-result-details-dialog[open] { display: flex; flex-direction: column; }
-.admin-result-details-dialog > :not(.admin-result-details-scroll) { flex-shrink: 0; }
 .admin-result-details-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
 .admin-result-details-heading h2 { margin: 0 0 8px; font-size: 22px; }
 .admin-result-details-heading p, .admin-result-details-footer p { color: #606a79; font-size: 13px; line-height: 1.6; }
-.admin-result-details-close { display: grid; width: 40px; height: 40px; flex: 0 0 40px; place-items: center; border: 0; border-radius: 50%; background: #e9edf3; color: #25324c; cursor: pointer; }
-.admin-result-details-close svg { width: 20px; height: 20px; }
-.admin-result-details-close:hover { background: #dce3ed; }
-.admin-result-details-close:focus-visible { outline: 3px solid #7fa8f4; outline-offset: 2px; }
 .admin-result-details-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .admin-result-details-filters button[aria-pressed="true"] { background: var(--blue); color: white; border-color: var(--blue); }
 .admin-result-details-notice { border-left: 3px solid #d09d30; padding: 8px 12px; font-size: 13px; background: #fff8e8; }
-.admin-result-details-scroll { flex: 1; min-height: 0; overflow: auto; }
+.admin-result-details-scroll { min-height: 0; }
 .admin-error-details-table { min-width: 1200px; }
 .admin-evidence-summary { margin: 0 0 24px; }
 .admin-evidence-summary h3 { margin: 8px 0; font-size: 16px; }
@@ -436,7 +459,7 @@
 .admin-report-download { display: inline-flex; align-items: center; gap: 4px; padding: 6px 8px; border: 1px solid #e5eaf2; border-radius: 8px; background: var(--surface); color: var(--blue); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }
 .admin-report-download:hover:not(:disabled) { border-color: #c5d5f5; background: #f7f9ff; }
 .admin-report-download svg { width: 16px; height: 16px; }
-.admin-report-download:disabled { opacity: 0.6; cursor: wait; }
+.admin-report-download:disabled { opacity: 0.55; cursor: not-allowed; }
 /* A modal still inherits the table cell's nowrap style through its DOM parent. */
 .report-share-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-width: none; max-height: min(90dvh, 780px); margin: auto; padding: 24px; overflow: auto; white-space: normal; overflow-wrap: anywhere; border: 1px solid #e2e7ef; border-radius: 20px; background: #fff; color: #081333; box-shadow: 0 24px 80px rgb(8 19 51 / 22%); }
 .report-share-dialog::backdrop { background: rgb(12 22 43 / 48%); backdrop-filter: blur(3px); }
@@ -462,8 +485,6 @@
 .report-share-error { display: grid; gap: 10px; margin: 10px 0; color: #a33d45 !important; font-size: 12px !important; }
 .report-share-status { margin: 12px 0 0; color: #4b637f !important; font-size: 12px !important; }
 .report-share-footer { display: flex; justify-content: flex-end; margin-top: 18px; padding-top: 14px; border-top: 1px solid #edf0f4; }
-.admin-troubleshoot-button { color: #3e3e3e; text-decoration: none; }
-.admin-troubleshoot-button:hover { border-color: #d5d8de; background: #f7f8fa; }
 .admin-report-error { display: block; max-width: 240px; margin-top: 4px; color: #a93b3b; font-size: 12px; }
 .admin-results-heading h3 { margin: 0; color: var(--ink); font-size: 18px; }
 .admin-results-heading p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }

@@ -14,7 +14,7 @@ export function ReportSharingButton({ item, session, updateSession }: {
 
   return <>
     <button className="admin-report-download" type="button" onClick={() => setOpen(true)} aria-label={`Share report for ${item.learner_reference}`}>
-      <span aria-hidden="true">↗</span><span>Share report</span>
+      <span aria-hidden="true">↗</span><span>Share Report</span>
     </button>
     {open ? <ReportSharingDialog key={item.id} item={item} session={session} updateSession={updateSession} onClose={() => setOpen(false)} /> : null}
   </>

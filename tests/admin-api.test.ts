@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { CenterApiError, createAssessmentReportShare, getAssessmentReportShare, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, rerunAssessment, retryAssessment, revokeAssessmentReportShare, type CenterSession } from '../src/admin/admin-api'
+import { CenterApiError, createAssessmentReportShare, getAssessmentReport, getAssessmentReportShare, getAssessmentResultDetails, getCenterReportPdf, getLinkAssessments, getLinkedAssessment, rerunAssessment, retryAssessment, revokeAssessmentReportShare, type CenterSession } from '../src/admin/admin-api'
 
 const session: CenterSession = { accessToken: 'access', refreshToken: 'refresh', expiresAt: Date.now() + 3600_000 }
 const originalFetch = globalThis.fetch
@@ -104,6 +104,16 @@ describe('center assessment API', () => {
     }) as typeof fetch
     const detail = await getLinkedAssessment('student/id', session, () => {})
     expect(detail.learner_email).toBe('student@example.test')
+  })
+
+  test('loads the saved report snapshot without caching', async () => {
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input).endsWith('/assessments/student%2Fid/report')).toBe(true)
+      expect(init?.cache).toBe('no-store')
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access')
+      return Response.json({ assessment_id: 'student/id', generated_at: '2026-11-11T08:22:22Z', content: { items: [] } })
+    }) as typeof fetch
+    expect((await getAssessmentReport('student/id', session, () => {})).assessment_id).toBe('student/id')
   })
 
   test('loads per-reading errors with authorization, encoded paging, and cancellation', async () => {

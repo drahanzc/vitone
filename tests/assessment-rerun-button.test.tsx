@@ -43,17 +43,11 @@ describe('assessment rerun button', () => {
     expect(rerunStateReducer(failed, { type: 'cancel' })).toEqual(initialRerunState)
   })
 
-  test('offers an unchecked rebuild option explaining pitch preservation and recovery limits', () => {
+  test('keeps rerun confirmation limited to rescoring saved results', () => {
     const html = renderToStaticMarkup(<RerunConfirmation busy={false} rebuildWordAlignment={false} onRebuildChange={() => {}} onConfirm={() => {}} onCancel={() => {}} />)
-    expect(html).toContain('type="checkbox"')
-    expect(html).toContain('Rebuild word alignment')
-    expect(html).toContain('keeps valid saved pitch from the same reading')
-    expect(html).toContain('Missing pitch cannot be restored by rerunning')
-    expect(html).toContain('Synthetic or incompatible evidence cannot be reused')
-    expect(html).not.toContain('checked=""')
-    const pending = renderToStaticMarkup(<RerunConfirmation busy={true} rebuildWordAlignment={true} onRebuildChange={() => {}} onConfirm={() => {}} onCancel={() => {}} />)
-    expect(pending).toContain('checked=""')
-    expect(pending.match(/disabled=""/g)).toHaveLength(3)
+    expect(html).not.toContain('type="checkbox"')
+    expect(html).toContain('Recalculate scoring using the saved Azure results')
+    expect(html).toContain('without calling Azure again')
   })
 
   test('preserves the rebuild choice on errors, locks it while pending, and resets it on cancel or success', () => {

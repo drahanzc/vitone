@@ -1,18 +1,16 @@
 import { useState } from 'react'
 import { getCenterReportPdf, type AssessmentListItem, type CenterSession } from './admin-api'
-import { AssessmentResultDetailsDialog } from './AssessmentResultDetailsDialog'
 import { openPdfPreview, type PdfPreview } from './pdf-preview'
 import { Icon } from './AdminPrimitives'
-import { ReportSharingButton } from './ReportSharing'
 
-export function ReportDownload({ item, session, updateSession }: {
+export function ReportDownload({ item, session, updateSession, available = true }: {
   item: AssessmentListItem
   session: CenterSession
   updateSession: (session: CenterSession | null) => void
+  available?: boolean
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [viewing, setViewing] = useState(false)
 
   async function viewPdf() {
@@ -53,19 +51,13 @@ export function ReportDownload({ item, session, updateSession }: {
 
   return (
     <div className="admin-report-cell">
-      <button className="admin-report-download" type="button" disabled={busy} onClick={() => void download()} aria-label={`Download PDF report for ${item.learner_reference}`}>
+      <button className="admin-report-download" type="button" disabled={!available || busy} onClick={() => void download()} aria-label={`Download PDF report for ${item.learner_reference}`} title={available ? undefined : 'A completed report is required'}>
         <Icon name="pdf" /><span>{busy ? 'Downloading…' : 'PDF'}</span>
       </button>
-      <button className="admin-report-download" type="button" disabled={viewing} onClick={() => void viewPdf()} aria-label={`View PDF report for ${item.learner_reference} (opens in a new tab)`}>
+      <button className="admin-report-download" type="button" disabled={!available || viewing} onClick={() => void viewPdf()} aria-label={`View PDF report for ${item.learner_reference} (opens in a new tab)`} title={available ? undefined : 'A completed report is required'}>
         <Icon name="eye" /><span>{viewing ? 'Opening…' : 'View PDF'}</span>
       </button>
-      <button className="admin-report-download" type="button" onClick={() => setDetailsOpen(true)} aria-label={`View result details for ${item.learner_reference}`}>
-        <Icon name="eye" /><span>Details</span>
-      </button>
-      <ReportSharingButton item={item} session={session} updateSession={updateSession} />
       {error ? <span className="admin-report-error" role="alert">{error}</span> : null}
-      {detailsOpen ? <AssessmentResultDetailsDialog assessmentId={item.id} learnerReference={item.learner_reference}
-        session={session} updateSession={updateSession} onClose={() => setDetailsOpen(false)} /> : null}
     </div>
   )
 }

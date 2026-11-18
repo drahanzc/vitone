@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { ResultEvidenceSummary, ResultFindingsTable } from '../src/admin/AssessmentResultDetailsDialog'
+import { ResultEvidenceSummary, ResultFindingsTable } from '../src/admin/AssessmentResultDetails'
 import { mergeResultDetailsPage } from '../src/admin/result-details-utils'
 import type { AssessmentResultDetails } from '../src/admin/admin-api'
 

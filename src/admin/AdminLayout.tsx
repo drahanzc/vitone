@@ -35,6 +35,9 @@ export function AdminSidebar({
           <NavLink to="/admin/assessments" className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}>
             <Icon name="assessment" /><span>Assessments</span>
           </NavLink>
+          <NavLink to="/admin/monitor" className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}>
+            <Icon name="clock" /><span>Monitor</span>
+          </NavLink>
         </nav>
       </section>
       {/* <div className="admin-side-divider" /> */}

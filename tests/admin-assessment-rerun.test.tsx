@@ -18,29 +18,26 @@ function renderResult(status: string): string {
 }
 
 describe('admin assessment Result column', () => {
-  test('offers saved-response reruns alongside completed report actions', () => {
+  test('contains only PDF, View PDF, Share Report, and Monitor actions for completed assessments', () => {
     const result = renderResult('COMPLETED')
-    expect(result).toContain('Rerun assessment</button>')
-    expect(result).toContain('aria-label="Rerun assessment for Fixture learner"')
-    expect(result).toContain('Download PDF report')
-    expect(result).toContain('View result details')
-    expect(result).not.toContain('Troubleshoot')
+    expect(result.match(/class="admin-report-download"/g)).toHaveLength(4)
+    expect(result).toContain('>PDF</span>')
+    expect(result).toContain('>View PDF</span>')
+    expect(result).toContain('>Share Report</span>')
+    expect(result).toContain('>Monitor</span>')
+    expect(result).not.toContain('Rerun assessment')
+    expect(result).not.toContain('Details</span>')
   })
 
-  test('offers reruns alongside troubleshooting for failed assessments', () => {
-    const result = renderResult('FAILED')
-    expect(result).toContain('Rerun assessment</button>')
-    expect(result).toContain('/admin/assessments/assessment%2Fid/monitor')
-    expect(result).toContain('Troubleshoot')
-    expect(result).not.toContain('Download PDF report')
-  })
-
-  test('keeps share management available without offering reruns while work is pending', () => {
-    for (const status of ['CREATED', 'UPLOADING', 'UPLOADED', 'PROCESSING', 'UNKNOWN']) {
+  test('keeps the same four actions for failed and pending assessments while disabling unavailable PDFs', () => {
+    for (const status of ['FAILED', 'CREATED', 'UPLOADING', 'UPLOADED', 'PROCESSING', 'UNKNOWN']) {
       const result = renderResult(status)
-      expect(result).toContain('Share report')
+      expect(result.match(/class="admin-report-download"/g)).toHaveLength(4)
+      expect(result).toContain('>Share Report</span>')
+      expect(result).toContain('>Monitor</span>')
+      expect(result).toContain('href="/admin/monitor/assessment%2Fid"')
       expect(result).not.toContain('Rerun assessment')
-      expect(result).not.toContain('Download PDF report')
+      expect(result.match(/disabled=""/g)).toHaveLength(2)
     }
   })
 })

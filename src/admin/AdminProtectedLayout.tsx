@@ -32,7 +32,9 @@ function AdminShell() {
 
   const displayName = profile?.center.name || profile?.user.email || 'Center account'
   const initials = displayName.split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || 'V'
-  const activePage = location.pathname.endsWith('/assessments') ? 'Assessments' : 'Dashboard'
+  const activePage = location.pathname === '/admin/monitor' || location.pathname.startsWith('/admin/monitor/')
+    ? 'Monitor'
+    : location.pathname.endsWith('/assessments') ? 'Assessments' : 'Dashboard'
 
   return (
     <div className="admin-app">

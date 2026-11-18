@@ -16,6 +16,7 @@ export type AssessmentListItem = components['schemas']['AssessmentListItem']
 export type AssessmentPage = components['schemas']['AssessmentPage']
 export type CreateLinkRequest = components['schemas']['CreateLinkRequest']
 export type AssessmentResultDetails = components['schemas']['AssessmentResultDetails']
+export type AssessmentReport = components['schemas']['AssessmentReport']
 export type ReportShareLink = components['schemas']['ReportShareLink']
 export type ReportShareState = components['schemas']['ReportShareState']
 
@@ -177,6 +178,19 @@ export async function centerRequest<T>(
   const response = await centerFetch(path, session, onSessionChange, init)
   if (response.status === 204) return undefined as T
   return await response.json() as T
+}
+
+export function getAssessmentReport(
+  assessmentId: string,
+  session: CenterSession,
+  onSessionChange: (session: CenterSession | null) => void,
+  signal?: AbortSignal,
+): Promise<AssessmentReport> {
+  return centerRequest(`/assessments/${encodeURIComponent(assessmentId)}/report`, session, onSessionChange, {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+    signal,
+  })
 }
 
 export async function getCenterReportPdf(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { getAssessmentLinks, getLinkAssessments, getLinkedAssessment, getPassages, type AssessmentLink, type AssessmentListItem, type CenterSession, type PassageChoice } from './admin-api'
 import { useCenterAuth } from './center-auth-context'
@@ -7,7 +7,6 @@ import { CreateLinkDialog } from './CreateLinkDialog'
 import { MetricCard } from './MetricCard'
 import { ReportDownload } from './ReportDownload'
 import { ReportSharingButton } from './ReportSharing'
-import { AssessmentRerunButton } from './AssessmentRerunButton'
 import { Icon } from './AdminPrimitives'
 
 export function AdminAssessmentsPage() {
@@ -161,13 +160,11 @@ function SubmissionTable({ link, filter, session, updateSession, onSubmissionCha
   const [error, setError] = useState('')
   const [requestCursor, setRequestCursor] = useState<string | undefined>()
   const [attempt, setAttempt] = useState(0)
-  const [notice, setNotice] = useState('')
 
-  const updateStatus = useCallback((id: string, status: string, completedAt: string | null, queued = false) => {
+  const updateStatus = useCallback((id: string, status: string, completedAt: string | null) => {
     setItems(current => current
       .map(item => item.id === id ? { ...item, status, completed_at: completedAt, headline: [] } : item)
       .filter(item => matchesSubmissionFilter(item.status, filter)))
-    if (queued) setNotice('Assessment queued for rescoring from saved results. The previous scoring report is no longer available.')
     onSubmissionChange()
   }, [filter, onSubmissionChange])
 
@@ -215,7 +212,6 @@ function SubmissionTable({ link, filter, session, updateSession, onSubmissionCha
           </tbody>
         </table>
       </div>
-      {notice ? <p role="status">{notice}</p> : null}
       {error ? <p className="admin-form-error" role="alert">{error} <button type="button" className="admin-assessment-select" onClick={() => { setError(''); setLoading(true); setAttempt(value => value + 1) }}>Try again</button></p> : null}
       <div className="admin-results-footer">
         <span>{items.length} {items.length === 1 ? 'submission' : 'submissions'} loaded</span>
@@ -229,21 +225,19 @@ export function SubmissionRow({ item, session, updateSession, onStatusChange }: 
   item: AssessmentListItem
   session: CenterSession
   updateSession: (session: CenterSession | null) => void
-  onStatusChange: (id: string, status: string, completedAt: string | null, queued?: boolean) => void
+  onStatusChange: (id: string, status: string, completedAt: string | null) => void
 }) {
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getLinkedAssessment>> | null>(null)
-  const detailVersion = useRef(0)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
-    const version = detailVersion.current
     let timer: number | undefined
     async function loadDetail() {
       try {
         const value = await getLinkedAssessment(item.id, session, updateSession)
-        if (!active || version !== detailVersion.current) return
+        if (!active) return
         setDetail(value)
         setFailed(false)
         if (value.status !== item.status) onStatusChange(item.id, value.status, value.completed_at ?? null)
@@ -251,37 +245,24 @@ export function SubmissionRow({ item, session, updateSession, onStatusChange }: 
           timer = window.setTimeout(() => void loadDetail(), 5000)
         }
       } catch {
-        if (active && version === detailVersion.current) setFailed(true)
+        if (active) setFailed(true)
       }
     }
     void loadDetail()
     return () => { active = false; window.clearTimeout(timer) }
   }, [item.id, item.status, session, updateSession, attempt, onStatusChange])
 
-  function handleRerunQueued() {
-    // Fence detail requests started before queueing so an old completed response
-    // cannot restore the report/status while the new scoring job is pending.
-    detailVersion.current += 1
-    setDetail(null)
-    setFailed(false)
-    onStatusChange(item.id, 'UPLOADED', null, true)
-    setAttempt(value => value + 1)
-  }
-
   return <tr>
     <td><strong>{item.learner_reference}</strong></td>
     <td>{failed ? <button className="admin-assessment-select" type="button" onClick={() => { setFailed(false); setDetail(null); setAttempt(value => value + 1) }}>Details unavailable · Retry</button> : detail ? detail.learner_email || '—' : 'Loading…'}</td>
     <td>{formatDate(item.created_at)}</td>
     <td><span className={`admin-status ${statusStyle(item.status)}`}><i />{statusName(item.status)}</span></td>
-    <td>{item.status === 'COMPLETED' ? <>
-      <ReportDownload item={item} session={session} updateSession={updateSession} />
-      <AssessmentRerunButton item={item} session={session} updateSession={updateSession} onQueued={handleRerunQueued} />
-    </> : item.status === 'FAILED' ? <>
-      <div className="admin-failed-result">
-        <Link className="admin-report-download admin-troubleshoot-button" to={`/admin/assessments/${encodeURIComponent(item.id)}/monitor`}><Icon name="settings" /><span>Troubleshoot<span className="visually-hidden"> {item.learner_reference}</span></span></Link>
-        <ReportSharingButton item={item} session={session} updateSession={updateSession} />
-      </div>
-      <AssessmentRerunButton item={item} session={session} updateSession={updateSession} onQueued={handleRerunQueued} />
-    </> : <ReportSharingButton item={item} session={session} updateSession={updateSession} />}</td>
+    <td><div className="admin-result-actions admin-result-actions-four">
+      <ReportDownload item={item} session={session} updateSession={updateSession} available={item.status === 'COMPLETED'} />
+      <ReportSharingButton item={item} session={session} updateSession={updateSession} />
+      <Link className="admin-report-download" to={`/admin/monitor/${encodeURIComponent(item.id)}`} aria-label={`Monitor assessment for ${item.learner_reference}`}>
+        <Icon name="settings" /><span>Monitor</span>
+      </Link>
+    </div></td>
   </tr>
 }

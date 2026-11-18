@@ -12,25 +12,22 @@ function renderRow(status: string): string {
   /></tbody></table></MemoryRouter>)
 }
 
-describe('submission result column rerun', () => {
-  test('completed results include rerun alongside report actions in the last cell', () => {
+describe('submission result column', () => {
+  test('renders four fixed actions and moves rerun out of the table', () => {
     const html = renderRow('COMPLETED')
     const resultCell = html.slice(html.lastIndexOf('<td>'))
-    expect(resultCell).toContain('PDF')
-    expect(resultCell).toContain('Details')
-    expect(resultCell).toContain('aria-label="Rerun assessment for Learner"')
+    expect(resultCell.match(/class="admin-report-download"/g)).toHaveLength(4)
+    expect(resultCell).toContain('>PDF</span>')
+    expect(resultCell).toContain('>View PDF</span>')
+    expect(resultCell).toContain('>Share Report</span>')
+    expect(resultCell).toContain('>Monitor</span>')
+    expect(resultCell).not.toContain('Rerun assessment')
   })
 
-  test('failed results include both troubleshooting and scoring-only rerun', () => {
-    const html = renderRow('FAILED')
+  test('keeps PDF actions disabled until a report is available', () => {
+    const html = renderRow('PROCESSING')
     const resultCell = html.slice(html.lastIndexOf('<td>'))
-    expect(resultCell).toContain('/admin/assessments/student%2Fid/monitor')
-    expect(resultCell).toContain('Rerun assessment</button>')
-  })
-
-  test('draft and in-progress results do not offer rerun', () => {
-    for (const status of ['CREATED', 'UPLOADING', 'UPLOADED', 'PROCESSING']) {
-      expect(renderRow(status)).not.toContain('Rerun assessment')
-    }
+    expect(resultCell.match(/disabled=""/g)).toHaveLength(2)
+    expect(resultCell).toContain('href="/admin/monitor/student%2Fid"')
   })
 })

@@ -67,6 +67,20 @@ repeated for unfinished readings. The action resumes all unfinished work, not an
 arbitrary completed stage. Repair configuration/input failures before retrying.
 Historical assessments without checkpoint records are identified explicitly.
 
+## Expert report comparison
+
+On a completed assessment's Monitor page, upload the matching student CSV from
+`fixtures/calibration_reports/by_student/` to compare expert labels with the
+saved report and per-reading engine evidence. The UI reads the CSV in the
+browser; it does not upload or persist reviewer labels. The CSV convention is
+`1 = correct`, `0 = error`, and blank = not reviewed. The comparison reports
+expert correct/error counts, saved report bands, and engine correct/error/
+uncertain counts for each reading. It marks counts comparable only when all CSV
+examples are reviewed, the engine denominator matches, and no engine examples
+are uncertain. Matching totals do not pair individual expert labels with
+individual engine decisions. It does not recalculate the saved report band;
+items without a per-reading example breakdown remain explicitly unavailable.
+
 ## OpenAPI types
 
 `assets/open-api.json` is the OpenAPI 3.1 document used to generate frontend types in `src/api-schema.d.ts`. Export it from the backend without starting services (`cargo run --quiet --bin export_openapi > ui/assets/open-api.json`, from the backend root), or fetch it from a running server, then regenerate the types:
